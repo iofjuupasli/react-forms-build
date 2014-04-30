@@ -22,6 +22,8 @@
     "react-forms.js",
     "react-forms.min.js",
     "themes",
+    "LICENSE",
+    "README.md",
     "bower.json"
   ],
   "scripts": {

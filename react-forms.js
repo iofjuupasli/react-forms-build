@@ -6,47 +6,6 @@
     root.ReactForms = factory(root.React);
   }
 })(window, function(React) {
-
-  var __ReactShim = window.__ReactShim = window.__ReactShim || {};
-
-  __ReactShim.React = React;
-
-  __ReactShim.cloneWithProps = React.addons.cloneWithProps;
-
-  __ReactShim.cx = React.addons.classSet;
-
-  __ReactShim.invariant = function(check, msg) {
-    if (!check) {
-      throw new Error(msg);
-    }
-  }
-
-  var mergeInto = __ReactShim.mergeInto = function(dst, src) {
-    for (var k in src) {
-      if (src.hasOwnProperty(k)) {
-        dst[k] = src[k];
-      }
-    }
-  }
-
-  __ReactShim.merge = function(a, b) {
-    var c = {};
-    mergeInto(c, a);
-    mergeInto(c, b);
-    return c;
-  }
-
-  __ReactShim.emptyFunction = function() {
-  }
-
-  __ReactShim.emptyFunction.thatReturnsTrue = function() {
-    return true;
-  }
-
-  __ReactShim.ReactUpdates = {
-    batchedUpdates: function(cb) { cb(); }
-  };
-
   return __browserify__('./lib/');
 });
 
@@ -56,11 +15,12 @@
  */
 'use strict';
 
-var React           = (window.__ReactShim.React);
-var cx              = (window.__ReactShim.cx);
-var mergeInto       = (window.__ReactShim.mergeInto);
+var React           = (window.React);
+var cx              = React.addons.classSet;
+var mergeInto       = __browserify__('./utils').mergeInto;
 var FieldMixin      = __browserify__('./FieldMixin');
 var Message         = __browserify__('./Message');
+var isFailure       = __browserify__('./validation').isFailure;
 
 var Field = React.createClass({displayName: 'Field',
   mixins: [FieldMixin],
@@ -82,21 +42,34 @@ var Field = React.createClass({displayName: 'Field',
       hint && React.DOM.span( {className:"react-forms-hint"}, hint));
   },
 
+  onBlur: function() {
+    var serializedValueLens = this.serializedValueLens();
+    if (serializedValueLens.isUndefined()) {
+      this.updateValue(serializedValueLens.val());
+    }
+  },
+
   render: function() {
+    var serializedValueLens = this.serializedValueLens();
     var validation = this.validationLens().val();
+    var externalValidation = this.externalValidation();
 
     var className = cx({
       'react-forms-field': true,
-      'invalid': validation.isFailure
+      'invalid': isFailure(validation)
     });
 
     var id = this._rootNodeID;
 
+    var input = this.renderInputComponent({id:id, onBlur: this.onBlur});
+
     return (
       React.DOM.div( {className:className}, 
         this.renderLabel({htmlFor: id}),
-        this.transferPropsTo(this.renderInputComponent({id:id})),
-        validation.isFailure &&
+        this.transferPropsTo(input),
+        isFailure(externalValidation) &&
+          Message(null, externalValidation.validation.failure),
+        isFailure(validation) && !serializedValueLens.isUndefined() &&
           Message(null, validation.validation.failure)
       )
     );
@@ -105,15 +78,15 @@ var Field = React.createClass({displayName: 'Field',
 
 module.exports = Field;
 
-},{"./FieldMixin":3,"./Message":11}],3:[function(__browserify__,module,exports){
+},{"./FieldMixin":3,"./Message":11,"./utils":25,"./validation":26}],3:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
-var React             = (window.__ReactShim.React);
-var cloneWithProps    = (window.__ReactShim.cloneWithProps);
-var mergeInto         = (window.__ReactShim.mergeInto);
+var React             = (window.React);
+var cloneWithProps    = React.addons.cloneWithProps;
+var mergeInto         = __browserify__('./utils').mergeInto;
 var FormElementMixin  = __browserify__('./FormElementMixin');
 
 /**
@@ -180,13 +153,13 @@ function getValueFromEvent(e) {
 
 module.exports = FieldMixin;
 
-},{"./FormElementMixin":8}],4:[function(__browserify__,module,exports){
+},{"./FormElementMixin":8,"./utils":25}],4:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
-var React         = (window.__ReactShim.React);
+var React         = (window.React);
 var FieldsetMixin = __browserify__('./FieldsetMixin');
 
 var Fieldset = React.createClass({displayName: 'Fieldset',
@@ -243,7 +216,7 @@ module.exports = FieldsetMixin;
  */
 'use strict';
 
-var React     = (window.__ReactShim.React);
+var React     = (window.React);
 var FormMixin = __browserify__('./FormMixin');
 var FormFor   = __browserify__('./FormFor');
 
@@ -267,7 +240,7 @@ module.exports = Form;
  */
 'use strict';
 
-var React = (window.__ReactShim.React);
+var React = (window.React);
 
 /**
  * Mixin for components which exposes form context.
@@ -281,6 +254,7 @@ var FormContextMixin = {
     serializedValueLens: React.PropTypes.object,
     valueLens: React.PropTypes.object,
     validationLens: React.PropTypes.object,
+    externalValidation: React.PropTypes.any,
     schema: React.PropTypes.object,
     onValueUpdate: React.PropTypes.func
   },
@@ -290,6 +264,7 @@ var FormContextMixin = {
       serializedValueLens: this.serializedValueLens(),
       valueLens: this.valueLens(),
       validationLens: this.validationLens(),
+      externalValidation: this.externalValidation(),
       schema: this.schema(),
       onValueUpdate: this.onValueUpdate
     };
@@ -304,8 +279,8 @@ module.exports = FormContextMixin;
  */
 'use strict';
 
-var React                     = (window.__ReactShim.React);
-var invariant                 = (window.__ReactShim.invariant);
+var React                     = (window.React);
+var utils                     = __browserify__('./utils');
 var schema                    = __browserify__('./schema');
 var ValidatedMixin            = __browserify__('./ValidatedMixin');
 var getDefaultValueForSchema  = __browserify__('./getDefaultValueForSchema');
@@ -313,6 +288,7 @@ var validationM               = __browserify__('./validation');
 
 var success = validationM.success;
 var serialize = validationM.serialize;
+var isFailure = validationM.isFailure;
 
 /**
  * Mixin for the form element (form field, fieldset of repeating fieldset).
@@ -332,6 +308,7 @@ var FormElementMixin = {
     serializedValueLens: React.PropTypes.object,
     valueLens: React.PropTypes.object,
     validationLens: React.PropTypes.object,
+    externalValidation: React.PropTypes.object,
     schema: React.PropTypes.object,
     onValueUpdate: React.PropTypes.func
   },
@@ -348,7 +325,7 @@ var FormElementMixin = {
     if (this.props.name !== undefined) {
       lens = lens.get(
         this.props.name,
-        serialize(this.schema(), this.valueLens(value).val())
+        serialize(this.schema(), this.valueLens().val())
       );
     }
     return value ? lens.for(value) : lens;
@@ -377,6 +354,16 @@ var FormElementMixin = {
     return validation ? lens.for(validation) : lens;
   },
 
+  externalValidation: function() {
+    var externalValidation = this.context.externalValidation;
+    if (this.props.name !== undefined &&
+        externalValidation &&
+        externalValidation.children) {
+      return externalValidation.children[this.props.name] || success;
+    }
+    return externalValidation || success;
+  },
+
   /**
    * Return form element schema.
    *
@@ -391,7 +378,7 @@ var FormElementMixin = {
       } else if (schema.isList(node)) {
         node = node.children;
       } else {
-        invariant(false, 'invalid field used for schema');
+        utils.invariant(false, 'invalid field used for schema');
       }
     }
 
@@ -417,8 +404,14 @@ var FormElementMixin = {
       validationLens.val().children
     );
 
-    valueLens = valueLens.mod(local.value);
     validationLens = validationLens.update(local.validation);
+
+    if (isFailure(validationLens.val())) {
+      // revert to the previous value
+      valueLens = this.valueLens();
+    } else {
+      valueLens = valueLens.mod(local.value);
+    }
 
     this.context.onValueUpdate(
       valueLens.root(),
@@ -444,13 +437,13 @@ var FormElementMixin = {
 
 module.exports = FormElementMixin;
 
-},{"./ValidatedMixin":14,"./getDefaultValueForSchema":16,"./schema":24,"./validation":26}],9:[function(__browserify__,module,exports){
+},{"./ValidatedMixin":14,"./getDefaultValueForSchema":16,"./schema":23,"./utils":25,"./validation":26}],9:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
-var React                     = (window.__ReactShim.React);
+var React                     = (window.React);
 var FormElementMixin          = __browserify__('./FormElementMixin');
 var createComponentFromSchema = __browserify__('./createComponentFromSchema');
 
@@ -478,8 +471,7 @@ module.exports = FormFor;
  */
 'use strict';
 
-var React                     = (window.__ReactShim.React);
-var ReactUpdates              = (window.__ReactShim.ReactUpdates);
+var React                     = (window.React);
 var lens                      = __browserify__('./lens');
 var ValidatedMixin            = __browserify__('./ValidatedMixin');
 var FormContextMixin          = __browserify__('./FormContextMixin');
@@ -488,6 +480,7 @@ var validationM               = __browserify__('./validation');
 
 var serialize = validationM.serialize;
 var success = validationM.success;
+var isSuccess = validationM.isSuccess;
 
 /**
  * Mixin which handles form value and form validation state.
@@ -501,6 +494,8 @@ var FormStateMixin = {
     defaultValue: React.PropTypes.any,
     value: React.PropTypes.any,
     serializedValue: React.PropTypes.any,
+    validation: React.PropTypes.any,
+    externalValidation: React.PropTypes.any,
     schema: React.PropTypes.object,
     onChange: React.PropTypes.func,
     onUpdate: React.PropTypes.func
@@ -565,6 +560,10 @@ var FormStateMixin = {
     return lens(validation !== undefined ? validation : this.state.validation);
   },
 
+  externalValidation: function() {
+    return this.props.externalValidation || success;
+  },
+
   /**
    * Form schema.
    *
@@ -587,15 +586,13 @@ var FormStateMixin = {
    */
   onValueUpdate: function(value, validation, serializedValue) {
     validation = validation || success;
-    ReactUpdates.batchedUpdates(function()  {
-      if (this.props.onUpdate) {
-        this.props.onUpdate(value, validation, serializedValue);
-      }
-      if (this.props.onChange && validation.isSuccess) {
-        this.props.onChange(value, validation, serializedValue);
-      }
-      this.setState({value:value, validation:validation, serializedValue:serializedValue});
-    }.bind(this));
+    if (this.props.onUpdate) {
+      this.props.onUpdate(value, validation, serializedValue);
+    }
+    if (this.props.onChange && isSuccess(validation)) {
+      this.props.onChange(value, validation, serializedValue);
+    }
+    this.setState({value:value, validation:validation, serializedValue:serializedValue});
   }
 };
 
@@ -605,13 +602,13 @@ var FormMixin = {
 
 module.exports = FormMixin;
 
-},{"./FormContextMixin":7,"./ValidatedMixin":14,"./getDefaultValueForSchema":16,"./lens":23,"./validation":26}],11:[function(__browserify__,module,exports){
+},{"./FormContextMixin":7,"./ValidatedMixin":14,"./getDefaultValueForSchema":16,"./lens":22,"./validation":26}],11:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
-var React = (window.__ReactShim.React);
+var React = (window.React);
 
 var Message = React.createClass({displayName: 'Message',
 
@@ -632,7 +629,7 @@ module.exports = Message;
  */
 'use strict';
 
-var React                   = (window.__ReactShim.React);
+var React                   = (window.React);
 var RepeatingFieldsetMixin  = __browserify__('./RepeatingFieldsetMixin');
 
 var Item = React.createClass({displayName: 'Item',
@@ -684,10 +681,14 @@ var RepeatingFieldset = React.createClass({displayName: 'RepeatingFieldset',
         fields,
         React.DOM.button(
           {type:"button",
-          onClick:this.add,
+          onClick:this.onAdd,
           className:"react-forms-repeating-fieldset-add"}, "Add")
       )
     );
+  },
+
+  onAdd: function () {
+    this.add();
   }
 
 });
@@ -701,8 +702,8 @@ module.exports.Item = Item;
  */
 'use strict';
 
-var React                     = (window.__ReactShim.React);
-var cloneWithProps            = (window.__ReactShim.cloneWithProps);
+var React                     = (window.React);
+var cloneWithProps            = React.addons.cloneWithProps;
 var FormElementMixin          = __browserify__('./FormElementMixin');
 var FormContextMixin          = __browserify__('./FormContextMixin');
 var getDefaultValueForSchema  = __browserify__('./getDefaultValueForSchema');
@@ -823,7 +824,7 @@ module.exports = ValidatedMixin;
  */
 'use strict';
 
-var invariant         = (window.__ReactShim.invariant);
+var utils             = __browserify__('./utils');
 var schema            = __browserify__('./schema');
 var Field             = __browserify__('./Field');
 var Fieldset          = __browserify__('./Fieldset');
@@ -848,19 +849,19 @@ function createComponentFromSchema(node) {
   } else if (schema.isProperty(node)) {
     return Field( {key:node.name, name:node.name} );
   } else {
-    invariant(false, 'invalid schema node: %s', node);
+    utils.invariant(false, 'invalid schema node: ' + node);
   }
 }
 
 module.exports = createComponentFromSchema;
 
-},{"./Field":2,"./Fieldset":4,"./RepeatingFieldset":12,"./schema":24}],16:[function(__browserify__,module,exports){
+},{"./Field":2,"./Fieldset":4,"./RepeatingFieldset":12,"./schema":23,"./utils":25}],16:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
-var invariant = (window.__ReactShim.invariant);
+var utils     = __browserify__('./utils');
 var schema    = __browserify__('./schema');
 
 /**
@@ -880,23 +881,22 @@ function getDefaultValueForSchema(node) {
   } else if (schema.isProperty(node)) {
     return null;
   } else {
-    invariant(
+    utils.invariant(
       false,
-      'do not know how to infer default value for %s', node
+      'do not know how to infer default value for ' + node
     );
   }
 }
 
 module.exports = getDefaultValueForSchema;
 
-},{"./schema":24}],17:[function(__browserify__,module,exports){
+},{"./schema":23,"./utils":25}],17:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
-var invariant = (window.__ReactShim.invariant);
-var isString  = __browserify__('./isString');
+var utils     = __browserify__('./utils');
 var types     = __browserify__('./types');
 var schema    = __browserify__('./schema');
 
@@ -909,14 +909,14 @@ var schema    = __browserify__('./schema');
 function getTypeFromSchema(node) {
   if (node && node.props.type) {
 
-    invariant(
+    utils.invariant(
       schema.isProperty(node),
       'only Property schema nodes can have types'
     );
 
-    if (isString(node.props.type)) {
+    if (utils.isString(node.props.type)) {
       var type = types[node.props.type];
-      invariant(type, 'unknown type %s', node.props.type);
+      utils.invariant(type, 'unknown type ' + node.props.type);
       return type;
     }
 
@@ -928,7 +928,7 @@ function getTypeFromSchema(node) {
 
 module.exports = getTypeFromSchema;
 
-},{"./isString":22,"./schema":24,"./types":25}],18:[function(__browserify__,module,exports){
+},{"./schema":23,"./types":24,"./utils":25}],18:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -949,6 +949,7 @@ var FieldsetMixin           = __browserify__('./FieldsetMixin');
 var RepeatingFieldsetMixin  = __browserify__('./RepeatingFieldsetMixin');
 
 var validators              = __browserify__('./validators');
+var validation              = __browserify__('./validation');
 var types                   = __browserify__('./types');
 var schema                  = __browserify__('./schema');
 var input                   = __browserify__('./input');
@@ -961,16 +962,16 @@ module.exports = {
 
   FormFor:FormFor, Message:Message,
 
-  schema:schema, types:types, validators:validators, input:input
+  schema:schema, types:types, validators:validators, validation:validation, input:input
 };
 
-},{"./Field":2,"./FieldMixin":3,"./Fieldset":4,"./FieldsetMixin":5,"./Form":6,"./FormContextMixin":7,"./FormElementMixin":8,"./FormFor":9,"./FormMixin":10,"./Message":11,"./RepeatingFieldset":12,"./RepeatingFieldsetMixin":13,"./input":21,"./schema":24,"./types":25,"./validators":27}],19:[function(__browserify__,module,exports){
+},{"./Field":2,"./FieldMixin":3,"./Fieldset":4,"./FieldsetMixin":5,"./Form":6,"./FormContextMixin":7,"./FormElementMixin":8,"./FormFor":9,"./FormMixin":10,"./Message":11,"./RepeatingFieldset":12,"./RepeatingFieldsetMixin":13,"./input":21,"./schema":23,"./types":24,"./validation":26,"./validators":27}],19:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
-var React = (window.__ReactShim.React);
+var React = (window.React);
 
 var CheckboxGroup = React.createClass({displayName: 'CheckboxGroup',
 
@@ -1047,7 +1048,7 @@ module.exports = CheckboxGroup;
  */
 'use strict';
 
-var React = (window.__ReactShim.React);
+var React = (window.React);
 
 function renderEmptyOption(props, onChange) {
   return (
@@ -1148,20 +1149,6 @@ module.exports = {
  */
 'use strict';
 
-var toString = Object.prototype.toString;
-
-function isString(o) {
-  return toString.call(o) === '[object String]';
-}
-
-module.exports = isString;
-
-},{}],23:[function(__browserify__,module,exports){
-/**
- * @jsx React.DOM
- */
-'use strict';
-
 
 
   function Lens(data, path) {
@@ -1182,6 +1169,24 @@ module.exports = isString;
       }
     }
     return value;
+  };
+
+  Lens.prototype.isUndefined=function() {
+    var value = this.__data;
+
+    if (value === undefined) {
+      return true;
+    }
+
+    for (var i = 0, len = this.__path.length; i < len; i++) {
+      var key = this.__path[i];
+      value = value[key.key];
+      if (value === undefined) {
+        return true;
+      }
+    }
+
+    return false;
   };
 
   Lens.prototype.root=function() {
@@ -1306,14 +1311,13 @@ module.exports = isString;
 
 module.exports = Lens.make.bind(Lens);
 
-},{}],24:[function(__browserify__,module,exports){
+},{}],23:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
-var merge       = (window.__ReactShim.merge);
-var invariant   = (window.__ReactShim.invariant);
+var utils     = __browserify__('./utils');
 
 function Node(){}
 
@@ -1322,7 +1326,7 @@ function Node(){}
 for(var Node____Key in Node){if(Node.hasOwnProperty(Node____Key)){PropertyNode[Node____Key]=Node[Node____Key];}}var ____SuperProtoOfNode=Node===null?null:Node.prototype;PropertyNode.prototype=Object.create(____SuperProtoOfNode);PropertyNode.prototype.constructor=PropertyNode;PropertyNode.__superConstructor__=Node;
 
   function PropertyNode(props) {
-    props = props ? merge({}, props) : {};
+    props = props ? utils.merge({}, props) : {};
 
     this.name = props.name;
     this.props = props;
@@ -1332,14 +1336,14 @@ for(var Node____Key in Node){if(Node.hasOwnProperty(Node____Key)){PropertyNode[N
 for(Node____Key in Node){if(Node.hasOwnProperty(Node____Key)){SchemaNode[Node____Key]=Node[Node____Key];}}SchemaNode.prototype=Object.create(____SuperProtoOfNode);SchemaNode.prototype.constructor=SchemaNode;SchemaNode.__superConstructor__=Node;
 
   function SchemaNode(props) {
-    props = props ? merge({}, props) : {};
+    props = props ? utils.merge({}, props) : {};
 
     var args = Array.prototype.slice.call(arguments, 1);
     var children = {};
 
     if (args.length !== 0) {
       forEachNested(args, function(arg)  {
-        invariant(
+        utils.invariant(
           arg.name,
           'props fields should specify name property'
         );
@@ -1364,11 +1368,11 @@ for(Node____Key in Node){if(Node.hasOwnProperty(Node____Key)){SchemaNode[Node___
 for(Node____Key in Node){if(Node.hasOwnProperty(Node____Key)){ListNode[Node____Key]=Node[Node____Key];}}ListNode.prototype=Object.create(____SuperProtoOfNode);ListNode.prototype.constructor=ListNode;ListNode.__superConstructor__=Node;
 
   function ListNode(props) {
-    props = props ? merge({}, props) : {};
+    props = props ? utils.merge({}, props) : {};
 
     var args = Array.prototype.slice.call(arguments, 1);
 
-    invariant(
+    utils.invariant(
       args.length === 1,
       'props for array must contain exactly one child props props'
     );
@@ -1431,7 +1435,7 @@ module.exports = {
   createType:createType
 };
 
-},{}],25:[function(__browserify__,module,exports){
+},{"./utils":25}],24:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1507,6 +1511,53 @@ function pad(num, size) {
 
 module.exports = {any:any, string:string, number:number, date:date};
 
+},{}],25:[function(__browserify__,module,exports){
+/**
+ * @jsx React.DOM
+ */
+'use strict';
+
+function mergeInto(dst, src) {
+  if (src != null) {
+    for (var k in src) {
+      if (!src.hasOwnProperty(k)) {
+        continue;
+      }
+      dst[k] = src[k];
+    }
+  }
+}
+
+function merge(a, b) {
+  var result = {};
+  mergeInto(result, a);
+  mergeInto(result, b);
+  return result;
+}
+
+function invariant(condition, message) {
+  if (!condition) {
+
+    throw new Error(message || 'invariant violation');
+  }
+}
+
+function emptyFunction() {
+
+}
+
+emptyFunction.thatReturnsTrue = function() {
+  return true;
+};
+
+var toString = Object.prototype.toString;
+
+function isString(o) {
+  return toString.call(o) === '[object String]';
+}
+
+module.exports = {mergeInto:mergeInto, merge:merge, invariant:invariant, emptyFunction:emptyFunction, isString:isString};
+
 },{}],26:[function(__browserify__,module,exports){
 /**
  * Schema validation
@@ -1515,7 +1566,7 @@ module.exports = {any:any, string:string, number:number, date:date};
  */
 'use strict';
 
-var invariant         = (window.__ReactShim.invariant);
+var utils             = __browserify__('./utils');
 var schema            = __browserify__('./schema');
 var getTypeFromSchema = __browserify__('./getTypeFromSchema');
 var validators        = __browserify__('./validators');
@@ -1543,7 +1594,7 @@ function serialize(node, value) {
       result[i] = serialize(node.children, value[i]);
     }
   } else {
-    invariant(false, 'unknown schema passed');
+    utils.invariant(false, 'unknown schema passed');
   }
 
   return result;
@@ -1583,9 +1634,9 @@ function validate(node, value) {
   } else if (schema.isProperty(node)) {
     return validateProperty(node, value);
   } else {
-    invariant(
+    utils.invariant(
       false,
-      'do not know how to validate %s of type %s', node, node.constructor
+      'do not know how to validate ' + node + ' of type ' + node.constructor
     );
   }
 }
@@ -1607,9 +1658,9 @@ function validateOnly(node, value, children) {
   } else if (schema.isProperty(node)) {
     return validateProperty(node, value, children);
   } else {
-    invariant(
+    utils.invariant(
       false,
-      'do not know how to validate %s of type %s', node, node.constructor
+      'do not know how to validate ' + node + ' of type ' + node.constructor
     );
   }
 }
@@ -1643,8 +1694,6 @@ function validateSchemaOnly(node, value, children) {
     return {
       value:value,
       validation: {
-        isSuccess: false,
-        isFailure: true,
         validation: {failure: undefined},
         children: children
       }
@@ -1653,22 +1702,16 @@ function validateSchemaOnly(node, value, children) {
 
   var deserialized = deserializeOnly(node, value);
 
-  if (deserialized.validation.isFailure) {
+  if (isFailure(deserialized.validation)) {
     return deserialized;
   }
 
   var validator = exists.andThen(node.props.validate);
   var validation = validator(value, node.props);
 
-  var isSuccess = validators.isSuccess(validation);
-
   return {
     value: deserialized.value,
-    validation: {
-      validation:validation,
-      isSuccess:isSuccess,
-      isFailure: !isSuccess
-    }
+    validation: {validation:validation}
   };
 }
 
@@ -1680,7 +1723,7 @@ function validateSchemaChildren(node, value) {
     for (var name in node.children) {
       var childValidation = validate(node.children[name], value[name]);
 
-      if (childValidation.validation.isFailure) {
+      if (isFailure(childValidation.validation)) {
         validation[name] = childValidation.validation;
       }
 
@@ -1708,8 +1751,6 @@ function validateListOnly(node, value, children) {
     return {
       value:value,
       validation: {
-        isSuccess: false,
-        isFailure: true,
         validation: {failure: undefined},
         children: children
       }
@@ -1718,21 +1759,16 @@ function validateListOnly(node, value, children) {
 
   var deserialized = deserializeOnly(node, value);
 
-  if (deserialized.validation.isFailure) {
+  if (isFailure(deserialized.validation)) {
     return deserialized;
   }
 
   var validator = nonEmpty.andThen(node.props.validate);
   var validation = validator(deserialized.value, node.props);
-  var isSuccess = validators.isSuccess(validation);
 
   return {
     value: deserialized.value,
-    validation: {
-      validation:validation,
-      isSuccess:isSuccess,
-      isFailure: !isSuccess
-    }
+    validation: {validation:validation}
   };
 }
 
@@ -1743,7 +1779,7 @@ function validateListChildren(node, value) {
   if (value && node.children) {
     for (var idx = 0, len = value.length; idx < len; idx++) {
       var childValidation = validate(node.children, value[idx]);
-      if (childValidation.validation.isFailure) {
+      if (isFailure(childValidation.validation)) {
         validation[idx] = childValidation.validation;
       }
       children[idx] = childValidation.value;
@@ -1757,61 +1793,64 @@ function validateProperty(node, value) {
 
   var deserialized = deserializeOnly(node, value);
 
-  if (deserialized.validation.isFailure) {
+  if (isFailure(deserialized.validation)) {
     return deserialized;
   }
 
   var validator = exists.andThen(node.props.validate);
   var validation = validator(deserialized.value, node.props);
-  var isSuccess = validators.isSuccess(validation);
 
   return {
     value: deserialized.value,
-    validation: {
-      validation:validation,
-      isSuccess:isSuccess,
-      isFailure: !isSuccess
-    }
+    validation: {validation:validation}
   };
 }
 
-function areChildrenValid(children) {
-  for (var k in children) {
-    if (children[k].isFailure) {
-      return false;
-    }
-  }
-  return true;
-}
-
 var success = {
-  isSuccess: true,
-  isFailure: false,
+  validation: {},
   children: {}
 };
 
 function failure(failure) {
-  return {
-    validation: {failure:failure},
-    isSuccess: false,
-    isFailure: true
-  };
+  return {validation: {failure:failure}};
+}
+
+function isSuccess(validation) {
+  return !isFailure(validation);
+}
+
+function isFailure(validation) {
+  return (
+    (validation.validation && validation.validation.failure !== undefined)
+    || (validation.children !== undefined && !areChildrenValid(validation.children))
+  );
+}
+
+
+function areChildrenValid(children) {
+  for (var k in children) {
+    if (isFailure(children[k])) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 module.exports = {
   validate:validate, validateOnly:validateOnly,
   success:success, failure:failure,
-  deserializeOnly:deserializeOnly, serialize:serialize
+  deserializeOnly:deserializeOnly, serialize:serialize,
+  isSuccess:isSuccess, isFailure:isFailure
 };
 
-},{"./getTypeFromSchema":17,"./schema":24,"./validators":27}],27:[function(__browserify__,module,exports){
+},{"./getTypeFromSchema":17,"./schema":23,"./utils":25,"./validators":27}],27:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
-var emptyFunction = (window.__ReactShim.emptyFunction);
-var isString      = __browserify__('./isString');
+var utils         = __browserify__('./utils');
 
 var success = {failure: undefined};
 var commonFailure = {failure: 'invalid value'};
@@ -1833,7 +1872,7 @@ function make(func) {
     if (maybeFailure === false) {
       return commonFailure;
     }
-    if (isString(maybeFailure)) {
+    if (utils.isString(maybeFailure)) {
       return {failure: maybeFailure};
     }
     return maybeFailure;
@@ -1845,7 +1884,7 @@ function make(func) {
 
 function validatorEmpty(func) {
   if (!func) {
-    return emptyFunction.thatReturnsTrue;
+    return utils.emptyFunction.thatReturnsTrue;
   }
   if (func.isValidator) {
     return func;
@@ -1856,7 +1895,7 @@ function validatorEmpty(func) {
 
 function validator(func) {
   if (!func) {
-    return emptyFunction.thatReturnsTrue;
+    return utils.emptyFunction.thatReturnsTrue;
   }
   if (func.isValidator) {
     return func;
@@ -1909,4 +1948,4 @@ module.exports = {
   nonEmpty:nonEmpty
 };
 
-},{"./isString":22}]},{},[1])
+},{"./utils":25}]},{},[1])

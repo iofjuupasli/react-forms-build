@@ -223,9 +223,18 @@ var FormFor   = __browserify__('./FormFor');
 var Form = React.createClass({displayName: 'Form',
   mixins: [FormMixin],
 
+  propTypes: {
+    component: React.PropTypes.component
+  },
+
+  getDefaultProps: function() {
+    return {component: React.DOM.form};
+  },
+
   render: function() {
+    var component = this.props.component;
     return this.transferPropsTo(
-      React.DOM.form(null, 
+      component(null, 
         FormFor(null )
       )
     );

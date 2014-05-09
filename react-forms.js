@@ -42,7 +42,15 @@ var Field = React.createClass({displayName: 'Field',
       hint && React.DOM.span( {className:"react-forms-hint"}, hint));
   },
 
+  onBlur: function() {
+    var serializedValueLens = this.serializedValueLens();
+    if (serializedValueLens.isUndefined()) {
+      this.updateValue(serializedValueLens.val());
+    }
+  },
+
   render: function() {
+    var serializedValueLens = this.serializedValueLens();
     var validation = this.validationLens().val();
     var externalValidation = this.externalValidation();
 
@@ -53,13 +61,15 @@ var Field = React.createClass({displayName: 'Field',
 
     var id = this._rootNodeID;
 
+    var input = this.renderInputComponent({id:id, onBlur: this.onBlur});
+
     return (
       React.DOM.div( {className:className}, 
         this.renderLabel({htmlFor: id}),
-        this.transferPropsTo(this.renderInputComponent({id:id})),
+        this.transferPropsTo(input),
         isFailure(externalValidation) &&
           Message(null, externalValidation.validation.failure),
-        isFailure(validation) &&
+        isFailure(validation) && !serializedValueLens.isUndefined() &&
           Message(null, validation.validation.failure)
       )
     );
@@ -1159,6 +1169,24 @@ module.exports = {
       }
     }
     return value;
+  };
+
+  Lens.prototype.isUndefined=function() {
+    var value = this.__data;
+
+    if (value === undefined) {
+      return true;
+    }
+
+    for (var i = 0, len = this.__path.length; i < len; i++) {
+      var key = this.__path[i];
+      value = value[key.key];
+      if (value === undefined) {
+        return true;
+      }
+    }
+
+    return false;
   };
 
   Lens.prototype.root=function() {

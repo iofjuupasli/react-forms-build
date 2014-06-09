@@ -9,7 +9,7 @@
   return __browserify__('./lib/');
 });
 
-},{"./lib/":18}],2:[function(__browserify__,module,exports){
+},{"./lib/":19}],2:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -22,6 +22,13 @@ var FieldMixin      = __browserify__('./FieldMixin');
 var Message         = __browserify__('./Message');
 var isFailure       = __browserify__('./validation').isFailure;
 
+/**
+ * Field component represents values which correspond to Property schema nodes
+ * and so received PropetyValue as value.
+ *
+ * It provides basic markup which include <input /> component (can be customized
+ * via schema) and <label /> (label text and hint text).
+ */
 var Field = React.createClass({displayName: 'Field',
   mixins: [FieldMixin],
 
@@ -30,33 +37,34 @@ var Field = React.createClass({displayName: 'Field',
   },
 
   renderLabel: function(props) {
-    var schema = this.schema();
+    var schema = this.value().schema;
     var label = this.props.label ? this.props.label : schema.props.label;
     var hint = this.props.hint ? this.props.hint : schema.props.hint;
-    var labelProps = {className: 'react-forms-label'};
+    var labelProps = {className: 'rf-label'};
     if (props) {
       mergeInto(labelProps, props);
     }
     return (label || hint) && React.DOM.label(labelProps,
       label,
-      hint && React.DOM.span( {className:"react-forms-hint"}, hint));
+      hint && React.DOM.span( {className:"rf-hint"}, hint));
   },
 
   onBlur: function() {
-    var serializedValueLens = this.serializedValueLens();
-    if (serializedValueLens.isUndefined()) {
-      this.updateValue(serializedValueLens.val());
+    var value = this.value();
+    if (value.isUndefined) {
+      this.onValueUpdate(value.update({value: value.value}));
     }
   },
 
   render: function() {
-    var serializedValueLens = this.serializedValueLens();
-    var validation = this.validationLens().val();
+    var value = this.value();
     var externalValidation = this.externalValidation();
+    var isInvalid = isFailure(value.validation)
+                 || isFailure(externalValidation.validation);
 
     var className = cx({
-      'react-forms-field': true,
-      'invalid': isFailure(validation)
+      'rf-field': true,
+      'rf-invalid': isInvalid
     });
 
     var id = this._rootNodeID;
@@ -69,8 +77,8 @@ var Field = React.createClass({displayName: 'Field',
         this.transferPropsTo(input),
         isFailure(externalValidation) &&
           Message(null, externalValidation.validation.failure),
-        isFailure(validation) && !serializedValueLens.isUndefined() &&
-          Message(null, validation.validation.failure)
+        isFailure(value.validation) && !value.isUndefined &&
+          Message(null, value.validation.validation.failure)
       )
     );
   }
@@ -78,16 +86,16 @@ var Field = React.createClass({displayName: 'Field',
 
 module.exports = Field;
 
-},{"./FieldMixin":3,"./Message":11,"./utils":25,"./validation":26}],3:[function(__browserify__,module,exports){
+},{"./FieldMixin":3,"./Message":11,"./utils":26,"./validation":27}],3:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
-var React             = (window.React);
-var cloneWithProps    = React.addons.cloneWithProps;
-var mergeInto         = __browserify__('./utils').mergeInto;
-var FormElementMixin  = __browserify__('./FormElementMixin');
+var React            = (window.React);
+var cloneWithProps   = React.addons.cloneWithProps;
+var mergeInto        = __browserify__('./utils').mergeInto;
+var FormElementMixin = __browserify__('./FormElementMixin');
 
 /**
  * Mixin for implementing fieldcomponents.
@@ -106,9 +114,9 @@ var FieldMixin = {
       e.stopPropagation();
     }
 
-    var value = getValueFromEvent(e);
-
-    this.updateValue(value);
+    var serialized = getValueFromEvent(e);
+    var value = this.value().updateSerialized(serialized);
+    this.onValueUpdate(value);
   },
 
   /**
@@ -117,11 +125,10 @@ var FieldMixin = {
    * @returns {ReactComponent}
    */
   renderInputComponent: function(props) {
-    var value = this.serializedValueLens().val();
-    var schema = this.schema();
+    var value = this.value();
 
-    var input = this.props.input || schema && schema.props.input;
-    var inputProps = {value:value, onChange: this.onChange};
+    var input = this.props.input || value.schema.props.input;
+    var inputProps = {value: value.serialized, onChange: this.onChange};
 
     if (props) {
       mergeInto(inputProps, props);
@@ -153,7 +160,7 @@ function getValueFromEvent(e) {
 
 module.exports = FieldMixin;
 
-},{"./FormElementMixin":8,"./utils":25}],4:[function(__browserify__,module,exports){
+},{"./FormElementMixin":8,"./utils":26}],4:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -162,13 +169,18 @@ module.exports = FieldMixin;
 var React         = (window.React);
 var FieldsetMixin = __browserify__('./FieldsetMixin');
 
+/**
+ * A component which renders a set of fields.
+ *
+ * It is used by <Form /> component at top level to render its fields.
+ */
 var Fieldset = React.createClass({displayName: 'Fieldset',
   mixins: [FieldsetMixin],
 
   render: function() {
-    var schema = this.schema();
+    var schema = this.value().schema;
     return this.transferPropsTo(
-      React.DOM.div( {className:"react-forms-fieldset"}, 
+      React.DOM.div( {className:"rf-fieldset"}, 
         schema.props.label && React.DOM.h4(null, schema.props.label),
         schema.map(this.renderField)
       )
@@ -184,8 +196,8 @@ module.exports = Fieldset;
  */
 'use strict';
 
-var FormElementMixin  = __browserify__('./FormElementMixin');
-var FormContextMixin  = __browserify__('./FormContextMixin');
+var FormElementMixin = __browserify__('./FormElementMixin');
+var FormContextMixin = __browserify__('./FormContextMixin');
 
 /**
  * Mixin for implementing fieldcomponents.
@@ -210,7 +222,7 @@ var FieldsetMixin = {
 
 module.exports = FieldsetMixin;
 
-},{"./FormContextMixin":7,"./FormElementMixin":8,"./createComponentFromSchema":15}],6:[function(__browserify__,module,exports){
+},{"./FormContextMixin":7,"./FormElementMixin":8,"./createComponentFromSchema":16}],6:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -219,31 +231,43 @@ module.exports = FieldsetMixin;
 var React     = (window.React);
 var FormMixin = __browserify__('./FormMixin');
 var FormFor   = __browserify__('./FormFor');
+var v         = __browserify__('./validation');
 
 var Form = React.createClass({displayName: 'Form',
   mixins: [FormMixin],
 
   propTypes: {
-    component: React.PropTypes.component
+    component: React.PropTypes.component,
+    onChange: React.PropTypes.func,
+    onUpdate: React.PropTypes.func
+  },
+
+  render: function() {
+    var component = this.props.component;
+    return this.transferPropsTo(
+      component( {className:"rf-form"}, 
+        FormFor(null )
+      )
+    );
   },
 
   getDefaultProps: function() {
     return {component: React.DOM.form};
   },
 
-  render: function() {
-    var component = this.props.component;
-    return this.transferPropsTo(
-      component(null, 
-        FormFor(null )
-      )
-    );
+  valueUpdated: function(value) {
+    if (this.props.onUpdate) {
+      this.props.onUpdate(value.value, value);
+    }
+    if (this.props.onChange && v.isSuccess(value.validation)) {
+      this.props.onChange(value.value, value);
+    }
   }
 });
 
 module.exports = Form;
 
-},{"./FormFor":9,"./FormMixin":10}],7:[function(__browserify__,module,exports){
+},{"./FormFor":9,"./FormMixin":10,"./validation":27}],7:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -251,36 +275,33 @@ module.exports = Form;
 
 var React = (window.React);
 
+var ContextTypes = {
+  value: React.PropTypes.object,
+  externalValidation: React.PropTypes.any,
+  onValueUpdate: React.PropTypes.func
+};
+
 /**
  * Mixin for components which exposes form context.
  *
- * See Form (via FormMixin), Fieldset (via FieldsetMixin) and RepeatingFieldset
- * (via RepeatingFieldsetMixin) for components which expose form context.
+ * See <Form />, <Fieldset /> and <RepeatingFieldset /> for components which
+ * expose form context.
  */
 var FormContextMixin = {
 
-  childContextTypes: {
-    serializedValueLens: React.PropTypes.object,
-    valueLens: React.PropTypes.object,
-    validationLens: React.PropTypes.object,
-    externalValidation: React.PropTypes.any,
-    schema: React.PropTypes.object,
-    onValueUpdate: React.PropTypes.func
-  },
+  childContextTypes: ContextTypes,
 
   getChildContext: function() {
     return {
-      serializedValueLens: this.serializedValueLens(),
-      valueLens: this.valueLens(),
-      validationLens: this.validationLens(),
+      value: this.value(),
       externalValidation: this.externalValidation(),
-      schema: this.schema(),
       onValueUpdate: this.onValueUpdate
     };
   }
 };
 
 module.exports = FormContextMixin;
+module.exports.ContextTypes = ContextTypes;
 
 },{}],8:[function(__browserify__,module,exports){
 /**
@@ -288,165 +309,100 @@ module.exports = FormContextMixin;
  */
 'use strict';
 
-var React                     = (window.React);
-var utils                     = __browserify__('./utils');
-var schema                    = __browserify__('./schema');
-var ValidatedMixin            = __browserify__('./ValidatedMixin');
-var getDefaultValueForSchema  = __browserify__('./getDefaultValueForSchema');
-var validationM               = __browserify__('./validation');
-
-var success = validationM.success;
-var serialize = validationM.serialize;
-var isFailure = validationM.isFailure;
+var React            = (window.React);
+var FormContextMixin = __browserify__('./FormContextMixin');
+var v                = __browserify__('./validation');
+var PropTypes        = __browserify__('./PropTypes');
 
 /**
- * Mixin for the form element (form field, fieldset of repeating fieldset).
+ * Mixin for components which serve as form elements.
+ *
+ * Form elements can get their values being in the context of a form or via
+ * props.
+ *
+ * See <Field />, <Fieldset /> and <RepeatingFieldset /> components for the
+ * examples.
  */
 var FormElementMixin = {
 
-  mixins: [ValidatedMixin],
-
   propTypes: {
+    value: PropTypes.Value,
+    externalValidation: React.PropTypes.object,
+    onValueUpdate: React.PropTypes.func,
     name: React.PropTypes.oneOfType([
       React.PropTypes.string,
       React.PropTypes.number
     ])
   },
 
-  contextTypes: {
-    serializedValueLens: React.PropTypes.object,
-    valueLens: React.PropTypes.object,
-    validationLens: React.PropTypes.object,
-    externalValidation: React.PropTypes.object,
-    schema: React.PropTypes.object,
-    onValueUpdate: React.PropTypes.func
+  contextTypes: FormContextMixin.ContextTypes,
+
+  /**
+   * Get the form value corresponding to an element.
+   *
+   * @returns {Value}
+   */
+  value: function() {
+    if (this.props.value) {
+      return this.props.value;
+    }
+
+    var value = this.context.value;
+    if (this.props.name !== undefined) {
+      value = value.get(this.props.name);
+    }
+
+    return value;
   },
 
   /**
-   * Return lens for the form element value or for the value passed as an
-   * argument.
+   * Get external validation state corresponding to an element.
    *
-   * @param {Any?} value
-   * @returns {Lens}
+   * @returns {Validation}
    */
-  serializedValueLens: function(value) {
-    var lens = this.context.serializedValueLens;
-    if (this.props.name !== undefined) {
-      lens = lens.get(
-        this.props.name,
-        serialize(this.schema(), this.valueLens().val())
-      );
-    }
-    return value ? lens.for(value) : lens;
-  },
-
-  valueLens: function(value) {
-    var lens = this.context.valueLens;
-    if (this.props.name !== undefined) {
-      lens = lens.get(this.props.name, getDefaultValueForSchema(this.schema()));
-    }
-    return value ? lens.for(value) : lens;
-  },
-
-  /**
-   * Return lens for the form element validation state or for the validation
-   * state passed as an argument.
-   *
-   * @param {Validation?} validation
-   * @returns {Lens}
-   */
-  validationLens: function(validation) {
-    var lens = this.context.validationLens;
-    if (this.props.name !== undefined) {
-      lens = lens.get('children', {}).get(this.props.name, success);
-    }
-    return validation ? lens.for(validation) : lens;
-  },
-
   externalValidation: function() {
+    if (this.props.externalValidation) {
+      return this.props.externalValidation;
+    }
+
     var externalValidation = this.context.externalValidation;
     if (this.props.name !== undefined &&
         externalValidation &&
         externalValidation.children) {
-      return externalValidation.children[this.props.name] || success;
+      return externalValidation.children[this.props.name] || v.success;
     }
-    return externalValidation || success;
+    return externalValidation || v.success;
   },
 
   /**
-   * Return form element schema.
+   * Notify form controller of the changed form value.
    *
-   * @returns {Schema}
+   * @param {Value} value
    */
-  schema: function() {
-    var node = this.context.schema;
-
-    if (node && this.props.name !== undefined) {
-      if (schema.isSchema(node)) {
-        node = node.children[this.props.name];
-      } else if (schema.isList(node)) {
-        node = node.children;
-      } else {
-        utils.invariant(false, 'invalid field used for schema');
-      }
+  updateValue: function(value) {
+    if (this.props.onValueUpdate) {
+      this.props.onValueUpdate(value);
+    } else {
+      this.context.onValueUpdate(value);
     }
-
-    return node;
   },
 
   /**
-   * Called when the form value and validation state is being updated.
+   * Called when the form value is being updated.
    *
-   * This method intercepts updated value and validation state and perform its
-   * own local validation and deserialization. Then passes everything up the
-   * owner.
+   * This method intercepts updated value and perform its own local validation
+   * and deserialization. Then passes everything up to the form controller.
    *
    * @param {Any} value
-   * @param {Validation} validation
    */
-  onValueUpdate: function(value, validation, serializedValue) {
-    var validationLens = this.validationLens(validation);
-    var valueLens = this.valueLens(value);
-
-    var local = this.validateOnly(
-      valueLens.val(),
-      validationLens.val().children
-    );
-
-    validationLens = validationLens.update(local.validation);
-
-    if (isFailure(validationLens.val())) {
-      // revert to the previous value
-      valueLens = this.valueLens();
-    } else {
-      valueLens = valueLens.mod(local.value);
-    }
-
-    this.context.onValueUpdate(
-      valueLens.root(),
-      validationLens.root(),
-      serializedValue
-    );
-  },
-
-  /**
-   * Update the serialized value for the current form element.
-   *
-   * @param {Any} serializedValue
-   */
-  updateValue: function(serializedValue) {
-    this.onValueUpdate(
-      this.valueLens().mod(serializedValue).root(),
-      this.validationLens().root(),
-      this.serializedValueLens().mod(serializedValue).root()
-    );
+  onValueUpdate: function(value) {
+    this.updateValue(value);
   }
-
 };
 
 module.exports = FormElementMixin;
 
-},{"./ValidatedMixin":14,"./getDefaultValueForSchema":16,"./schema":23,"./utils":25,"./validation":26}],9:[function(__browserify__,module,exports){
+},{"./FormContextMixin":7,"./PropTypes":12,"./validation":27}],9:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -459,131 +415,93 @@ var createComponentFromSchema = __browserify__('./createComponentFromSchema');
 /**
  * A "proxy" component which renders into field, fieldset or repeating fieldset
  * based on a current schema node.
+ *
+ * Example usage:
+ *
+ *    <FormFor name="fieldName" />
+ *
+ * will automatically generate a form component for the "fieldName" field of the
+ * form value (retreived from current context).
+ *
+ * Alternatively pass value, onValueUpdate via props:
+ *
+ *    <FormFor
+ *      value={value.get('fieldName')}
+ *      onValueUpdate={onValueUpdate}
+ *      />
  */
 var FormFor = React.createClass({displayName: 'FormFor',
   mixins: [FormElementMixin],
 
-  propTypes: {
-    name: React.PropTypes.string
-  },
-
   render: function() {
-    return this.transferPropsTo(createComponentFromSchema(this.schema()));
+    var component = createComponentFromSchema(this.value().schema);
+    return this.transferPropsTo(component);
   }
 });
 
 module.exports = FormFor;
 
-},{"./FormElementMixin":8,"./createComponentFromSchema":15}],10:[function(__browserify__,module,exports){
+},{"./FormElementMixin":8,"./createComponentFromSchema":16}],10:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
 var React                     = (window.React);
-var lens                      = __browserify__('./lens');
-var ValidatedMixin            = __browserify__('./ValidatedMixin');
 var FormContextMixin          = __browserify__('./FormContextMixin');
 var getDefaultValueForSchema  = __browserify__('./getDefaultValueForSchema');
-var validationM               = __browserify__('./validation');
-
-var serialize = validationM.serialize;
-var success = validationM.success;
-var isSuccess = validationM.isSuccess;
+var Value                     = __browserify__('./Value');
+var v                         = __browserify__('./validation');
 
 /**
- * Mixin which handles form value and form validation state.
+ * Mixin which handles form value.
  *
  * @private
  */
 var FormStateMixin = {
-  mixins: [ValidatedMixin],
 
   propTypes: {
     defaultValue: React.PropTypes.any,
     value: React.PropTypes.any,
-    serializedValue: React.PropTypes.any,
-    validation: React.PropTypes.any,
     externalValidation: React.PropTypes.any,
-    schema: React.PropTypes.object,
-    onChange: React.PropTypes.func,
-    onUpdate: React.PropTypes.func
+    schema: React.PropTypes.object.isRequired
   },
 
   getInitialState: function() {
-    var value = this.props.value ||
-      this.props.defaultValue ||
-      getDefaultValueForSchema(this.props.schema);
-    var state = this.getFormState(value);
-    return state;
+    var value = (
+      this.props.value
+      || this.props.defaultValue
+      || getDefaultValueForSchema(this.props.schema)
+    );
+    return this._getFormState(value);
   },
 
   componentWillReceiveProps: function(nextProps) {
     if (nextProps.value !== undefined) {
-      var nextState;
-      if (nextProps.validation !== undefined &&
-          nextProps.serializedValue !== undefined) {
-        nextState = {
-          serializedValue: nextProps.serializedValue,
-          validation: nextProps.validation,
-          value: nextProps.value
-        };
-      } else {
-        nextState = this.getFormState(nextProps.value);
-      }
-      this.setState(nextState);
+      this.setState(this._getFormState(nextProps.value));
     }
   },
 
-  getFormState: function(value) {
-    var validation = this.validate(value);
-    return {
-      value: validation.value,
-      validation: validation.validation,
-      serializedValue: serialize(this.schema(), validation.value)
-    };
+  /**
+   * Return current form value.
+   *
+   * @returns {Value}
+   */
+  value: function() {
+    return this.state.value;
   },
 
   /**
-   * Return lens for the form value or for the value passed as an argument.
+   * Return external validation.
    *
-   * @param {Any?} value
-   * @returns {Lens}
+   * @returns {Validation}
    */
-  serializedValueLens: function(value) {
-    return lens(value !== undefined ? value : this.state.serializedValue);
-  },
-
-  valueLens: function(value) {
-    return lens(value !== undefined ? value : this.state.value);
-  },
-
-  /**
-   * Return lens for the form validation state or for the validation state
-   * passed as an argument.
-   *
-   * @param {Validation?} validation
-   * @returns {Lens}
-   */
-  validationLens: function(validation) {
-    return lens(validation !== undefined ? validation : this.state.validation);
-  },
-
   externalValidation: function() {
-    return this.props.externalValidation || success;
-  },
-
-  /**
-   * Form schema.
-   *
-   * @returns {Schema}
-   */
-  schema: function() {
-    return this.props.schema;
+    return this.props.externalValidation || v.success;
   },
 
   updateValue: function(value) {
-    this.setState(this.getFormState(value));
+    this.setState(this._getFormState(value));
   },
 
   /**
@@ -593,25 +511,38 @@ var FormStateMixin = {
    * @param {Validation} validation
    * @param {Any} convertedValue
    */
-  onValueUpdate: function(value, validation, serializedValue) {
-    validation = validation || success;
-    if (this.props.onUpdate) {
-      this.props.onUpdate(value, validation, serializedValue);
+  onValueUpdate: function(value) {
+    var nextState = this._getFormState(value.root());
+    if (typeof this.valueUpdated === 'function') {
+      this.valueUpdated(nextState.value);
     }
-    if (this.props.onChange && isSuccess(validation)) {
-      this.props.onChange(value, validation, serializedValue);
+    this.setState(nextState);
+  },
+
+  _getFormState: function(value) {
+    if (!Value.isValue(value)) {
+      value = Value(this.props.schema, value);
     }
-    this.setState({value:value, validation:validation, serializedValue:serializedValue});
+    if (typeof this.getFormState === 'function') {
+      return this.getFormState(value);
+    } else {
+      return {value:value};
+    }
   }
 };
 
+/**
+ * Mixin for form controller components.
+ *
+ * See <Form /> component for the example.
+ */
 var FormMixin = {
   mixins: [FormStateMixin, FormContextMixin]
 };
 
 module.exports = FormMixin;
 
-},{"./FormContextMixin":7,"./ValidatedMixin":14,"./getDefaultValueForSchema":16,"./lens":22,"./validation":26}],11:[function(__browserify__,module,exports){
+},{"./FormContextMixin":7,"./Value":15,"./getDefaultValueForSchema":17,"./validation":27}],11:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -623,7 +554,7 @@ var Message = React.createClass({displayName: 'Message',
 
   render: function() {
     return this.transferPropsTo(
-      React.DOM.span( {className:"react-forms-message"}, 
+      React.DOM.span( {className:"rf-message"}, 
         this.props.children
       )
     );
@@ -638,6 +569,25 @@ module.exports = Message;
  */
 'use strict';
 
+var isValue = __browserify__('./Value').isValue;
+
+function Value(props, name, component) {
+  if (props[name] !== undefined && !isValue(props[name])) {
+    console.warn(
+      'Invalid Value object passed as prop "' + name + '"',
+      'to component "' + component + '"'
+    );
+  }
+}
+
+module.exports = {Value:Value};
+
+},{"./Value":15}],13:[function(__browserify__,module,exports){
+/**
+ * @jsx React.DOM
+ */
+'use strict';
+
 var React                   = (window.React);
 var RepeatingFieldsetMixin  = __browserify__('./RepeatingFieldsetMixin');
 
@@ -645,12 +595,12 @@ var Item = React.createClass({displayName: 'Item',
 
   render: function() {
     return this.transferPropsTo(
-      React.DOM.div( {className:"react-forms-repeating-fieldset-item"}, 
+      React.DOM.div( {className:"rf-repeating-fieldset-item"}, 
         this.props.children,
         React.DOM.button(
           {onClick:this.onRemove,
           type:"button",
-          className:"react-forms-repeating-fieldset-remove"}, "×")
+          className:"rf-repeating-fieldset-remove"}, "×")
       )
     );
   },
@@ -663,6 +613,9 @@ var Item = React.createClass({displayName: 'Item',
 
 });
 
+/**
+ * A component which renders values which correspond to List schema node.
+ */
 var RepeatingFieldset = React.createClass({displayName: 'RepeatingFieldset',
 
   mixins: [RepeatingFieldsetMixin],
@@ -674,7 +627,7 @@ var RepeatingFieldset = React.createClass({displayName: 'RepeatingFieldset',
   },
 
   render: function() {
-    var schema = this.schema();
+    var schema = this.value().schema;
     var Component = this.props.item;
     var fields = this.renderFields().map(function(item) 
       {return Component(
@@ -685,13 +638,13 @@ var RepeatingFieldset = React.createClass({displayName: 'RepeatingFieldset',
       );}.bind(this)
     );
     return this.transferPropsTo(
-      React.DOM.div( {className:"react-forms-repeating-fieldset"}, 
+      React.DOM.div( {className:"rf-repeating-fieldset"}, 
         schema.props.label && React.DOM.h4(null, schema.props.label),
         fields,
         React.DOM.button(
           {type:"button",
           onClick:this.onAdd,
-          className:"react-forms-repeating-fieldset-add"}, "Add")
+          className:"rf-repeating-fieldset-add"}, "Add")
       )
     );
   },
@@ -705,17 +658,16 @@ var RepeatingFieldset = React.createClass({displayName: 'RepeatingFieldset',
 module.exports = RepeatingFieldset;
 module.exports.Item = Item;
 
-},{"./RepeatingFieldsetMixin":13}],13:[function(__browserify__,module,exports){
+},{"./RepeatingFieldsetMixin":14}],14:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
-var React                     = (window.React);
-var cloneWithProps            = React.addons.cloneWithProps;
-var FormElementMixin          = __browserify__('./FormElementMixin');
-var FormContextMixin          = __browserify__('./FormContextMixin');
-var getDefaultValueForSchema  = __browserify__('./getDefaultValueForSchema');
+var React            = (window.React);
+var cloneWithProps   = React.addons.cloneWithProps;
+var FormElementMixin = __browserify__('./FormElementMixin');
+var FormContextMixin = __browserify__('./FormContextMixin');
 
 /**
  * Mixin for implementing repeating fieldsets.
@@ -739,9 +691,9 @@ var RepeatingFieldsetMixin = {
   renderFields: function() {
     // prevent circular require
     var createComponentFromSchema = __browserify__('./createComponentFromSchema');
-    var schema = this.schema();
-    var children = createComponentFromSchema(schema.children);
-    return this.serializedValueLens().val().map(function(item, name) 
+    var value = this.value();
+    var children = createComponentFromSchema(value.schema.children);
+    return value.serialized.map(function(item, name) 
       {return cloneWithProps(children, {name:name, key: name});});
   },
 
@@ -751,83 +703,317 @@ var RepeatingFieldsetMixin = {
    * @param {Number} index
    */
   remove: function(index) {
-    var value = this.serializedValueLens().val().slice(0);
-    var removed = value.splice(index, 1)[0];
-
+    var value = this.value().remove(index);
     this.updateValue(value);
-
     if (this.props.onRemove) {
-      this.props.onRemove(removed, index);
+      this.props.onRemove(index);
     }
   },
 
   /**
    * Add new value to fieldset's value.
    */
-  add: function(value) {
-    if (value === undefined) {
-      var schema = this.schema();
-      value = getDefaultValueForSchema(schema.children);
-    }
-
-    this.updateValue(this.valueLens().val().concat(value));
-
+  add: function(itemValue) {
+    var value = this.value().add(itemValue);
+    this.updateValue(value);
     if (this.props.onAdd) {
-      this.props.onAdd(value);
+      this.props.onAdd(value.value[value.value.length - 1]);
     }
   }
 };
 
 module.exports = RepeatingFieldsetMixin;
 
-},{"./FormContextMixin":7,"./FormElementMixin":8,"./createComponentFromSchema":15,"./getDefaultValueForSchema":16}],14:[function(__browserify__,module,exports){
+},{"./FormContextMixin":7,"./FormElementMixin":8,"./createComponentFromSchema":16}],15:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
+ * @preventMunge
  */
 'use strict';
 
-var validation = __browserify__('./validation');
+var v = __browserify__('./validation');
+var s = __browserify__('./schema');
+var u = __browserify__('./utils');
+var getDefaultValueForSchema = __browserify__('./getDefaultValueForSchema');
 
-/**
- * Common validation routines.
- *
- * @private
- */
-var ValidatedMixin = {
 
-  /**
-   * Validate value incrementally
-   *
-   * @param {Any} value
-   * @param {Object.<{<name>: Validation}>} children
-   * @returns {Object.<{value: Any, validation: Validation}>}
-   */
-  validateOnly: function(value, children) {
-    return this._validateWith(validation.validateOnly, value, children);
-  },
 
-  /**
-   * Validate value.
-   *
-   * @param {Any} value
-   * @returns {Object.<{value: Any, validation: Validation}>}
-   */
-  validate: function(value) {
-    return this._validateWith(validation.validate, value);
-  },
+  function Value(parent, name, path, schema, value, serialized, validation) {
+    this.parent = parent;
+    this.name = name;
+    this.path = path;
+    this.schema = schema;
+    this.value = value;
+    this.serialized = serialized;
+    this.validation = validation;
 
-  _validateWith: function(validate, value, children) {
-    value = value !== undefined ? value : this.serializedValueLens().val();
-    var schema = this.schema();
-    return schema ?
-      validate(schema, value, children) :
-      {validation: validation.success, value:value};
+    this.isUndefined = this.value === undefined;
+
+    if (this.value === undefined) {
+      this.value = getDefaultValueForSchema(this.schema);
+    }
+
+    if (this.validation === undefined) {
+      var validated = v.validate(this.schema, this.value);
+      this.value = validated.value;
+      this.validation = validated.validation;
+    }
+
+    if (this.serialized === undefined) {
+      this.serialized = v.serialize(schema, this.value);
+    }
+
+    if ("development" !== 'production') {
+      u.deepFreeze(this);
+    }
   }
-};
 
-module.exports = ValidatedMixin;
+  Value.prototype.root=function() {
+    var value = this;
 
-},{"./validation":26}],15:[function(__browserify__,module,exports){
+    while (value.parent) {
+      value = value.parent;
+    }
+
+    return value;
+  };
+
+  Value.prototype.for=function(root) {
+    var value = root;
+
+    for (var i = 0, len = this.path.length; i < len; i++) {
+      value = value.get(this.path[i]);
+    }
+
+    return value;
+  };
+
+  Value.prototype.get=function(name) {
+    return _make(
+      this,
+      name,
+      this.path.concat(name),
+      this.schema.get(name),
+      this.value[name],
+      this.serialized[name],
+      (this.validation.children && this.validation.children[name]) || v.success
+    );
+  };
+
+  Value.prototype.updateValue=function(value) {
+    return this.update({value:value});
+  };
+
+  Value.prototype.updateValidation=function(validation) {
+    return this.update({validation:validation});
+  };
+
+  Value.prototype.updateSerialized=function(serialized) {
+    return this.update({serialized:serialized});
+  };
+
+  Value.prototype.update=function(update) {
+    var current = this;
+    update = this._updateSelf(update);
+
+    while (current.parent) {
+      update = current.parent._updateChild(current.name, update);
+      current = current.parent;
+    }
+
+    return this.for(make(
+      current.schema,
+      update.value,
+      update.serialized,
+      update.validation
+    ));
+  };
+
+  Value.prototype._updateSelf=function(update) {
+    u.invariant(
+      !(update.value === undefined
+        && update.serialized === undefined
+        && update.validation === undefined)
+    );
+
+    if (update.value === undefined || update.validation === undefined) {
+      var toValidate = update.value !== undefined ?
+        update.value :
+        update.serialized !== undefined ?
+        update.serialized :
+        this.value;
+      var validated = v.validate(this.schema, toValidate);
+      update.value = validated.value;
+      update.validation = mergeValidation(
+        validated.validation,
+        update.validation);
+    }
+
+    if (update.serialized === undefined) {
+      update.serialized = v.serialize(this.schema, update.value);
+    }
+
+    return update;
+  };
+
+
+
+function mergeValidation(a, b) {
+  if (b === undefined || b === null) {
+    return a;
+  }
+
+  var result = {
+    validation: {},
+    children: {}
+  };
+
+  if (b.validation) {
+    result.validation = b.validation;
+  } else if (a.validation) {
+    result.validation = a.validation;
+  }
+
+  var k;
+
+  if (b.children) {
+    for (k in a.children) {
+      result.children[k] = mergeValidation(a.children[k], b.children[k]);
+    }
+
+    for (k in b.children) {
+      if (result.children[k] === undefined) {
+        result.children[k] = b.children[k];
+      }
+    }
+  } else {
+    result.children = a.children;
+  }
+
+  return result;
+}
+
+for(var Value____Key in Value){if(Value.hasOwnProperty(Value____Key)){SchemaValue[Value____Key]=Value[Value____Key];}}var ____SuperProtoOfValue=Value===null?null:Value.prototype;SchemaValue.prototype=Object.create(____SuperProtoOfValue);SchemaValue.prototype.constructor=SchemaValue;SchemaValue.__superConstructor__=Value;function SchemaValue(){if(Value!==null){Value.apply(this,arguments);}}
+
+  SchemaValue.prototype._updateChild=function(name, update) {
+    update = this._updateSelf(update);
+
+    var value = {};
+    var serialized = {};
+    var validation = {
+      validation: this.validation.validation,
+      children: {}
+    };
+
+    var n;
+
+    for (n in this.value) {
+      value[n] = this.value[n];
+      serialized[n] = this.serialized[n];
+    }
+
+    for (n in this.validation.children) {
+      validation.children[n] = this.validation.children[n];
+    }
+
+    value[name] = update.value;
+    serialized[name] = update.serialized;
+    validation.children[name] = update.validation;
+
+    var validated = v.validateOnly(this.schema, value, validation.children);
+
+    value = validated.value;
+    validation = validated.validation;
+
+    return {value:value, serialized:serialized, validation:validation};
+  };
+
+
+for(Value____Key in Value){if(Value.hasOwnProperty(Value____Key)){ListValue[Value____Key]=Value[Value____Key];}}ListValue.prototype=Object.create(____SuperProtoOfValue);ListValue.prototype.constructor=ListValue;ListValue.__superConstructor__=Value;function ListValue(){if(Value!==null){Value.apply(this,arguments);}}
+
+  ListValue.prototype._updateChild=function(name, update) {
+    update = this._updateSelf(update);
+
+    var value = this.value.slice(0);
+    var serialized = this.serialized.slice(0);
+
+    var validation = {
+      validation: this.validation.validation,
+      children: {}
+    };
+
+    for (var n in this.validation.children) {
+      validation.children[n] = this.validation.children[n];
+    }
+
+    value[name] = update.value;
+    serialized[name] = update.serialized;
+    validation.children[name] = update.validation;
+
+    return {value:value, serialized:serialized, validation:validation};
+  };
+
+  ListValue.prototype.swap=function(aIndex, bIndex) {
+    var value = this.value.slice(0);
+    var serialized = this.serialized.slice(0);
+
+    value.splice(bIndex, 0, value.splice(aIndex, 1));
+    serialized.splice(bIndex, 0, serialized.splice(aIndex, 1));
+
+    return this.update({value:value, serialized:serialized});
+  };
+
+  ListValue.prototype.add=function(value) {
+    if (value === undefined) {
+      value = getDefaultValueForSchema(this.schema.children);
+    }
+
+    return this.update({value: this.value.concat(value)});
+  };
+
+  ListValue.prototype.remove=function(index) {
+    var value = this.value.slice(0);
+    var serialized = this.serialized.slice(0);
+
+    value.splice(index, 1);
+    serialized.splice(index, 1);
+
+    return this.update({value:value, serialized:serialized});
+  };
+
+
+for(Value____Key in Value){if(Value.hasOwnProperty(Value____Key)){PropertyValue[Value____Key]=Value[Value____Key];}}PropertyValue.prototype=Object.create(____SuperProtoOfValue);PropertyValue.prototype.constructor=PropertyValue;PropertyValue.__superConstructor__=Value;function PropertyValue(){if(Value!==null){Value.apply(this,arguments);}}
+
+
+
+function _make(parent, name, path, schema, value, serialized, validation) {
+  var constructor;
+  if (s.isSchema(schema)) {
+    constructor = SchemaValue;
+  } else if (s.isList(schema)) {
+    constructor = ListValue;
+  } else if (s.isProperty(schema)) {
+    constructor = PropertyValue;
+  } else {
+    u.invariant(false, 'invalid schema node');
+  }
+
+  return new constructor(
+    parent, name, path, schema, value, serialized, validation);
+}
+
+function make(schema, value, serialized, validation) {
+  return _make(null, null, [], schema, value, serialized, validation);
+}
+
+function isValue(value) {
+  return value instanceof Value;
+}
+
+module.exports = make;
+module.exports.isValue = isValue;
+
+},{"./getDefaultValueForSchema":17,"./schema":24,"./utils":26,"./validation":27}],16:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -864,7 +1050,7 @@ function createComponentFromSchema(node) {
 
 module.exports = createComponentFromSchema;
 
-},{"./Field":2,"./Fieldset":4,"./RepeatingFieldset":12,"./schema":23,"./utils":25}],16:[function(__browserify__,module,exports){
+},{"./Field":2,"./Fieldset":4,"./RepeatingFieldset":13,"./schema":24,"./utils":26}],17:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -899,7 +1085,7 @@ function getDefaultValueForSchema(node) {
 
 module.exports = getDefaultValueForSchema;
 
-},{"./schema":23,"./utils":25}],17:[function(__browserify__,module,exports){
+},{"./schema":24,"./utils":26}],18:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -937,7 +1123,7 @@ function getTypeFromSchema(node) {
 
 module.exports = getTypeFromSchema;
 
-},{"./schema":23,"./types":24,"./utils":25}],18:[function(__browserify__,module,exports){
+},{"./schema":24,"./types":25,"./utils":26}],19:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -957,7 +1143,10 @@ var FieldMixin              = __browserify__('./FieldMixin');
 var FieldsetMixin           = __browserify__('./FieldsetMixin');
 var RepeatingFieldsetMixin  = __browserify__('./RepeatingFieldsetMixin');
 
+var PropTypes               = __browserify__('./PropTypes');
+
 var validators              = __browserify__('./validators');
+var messages                = __browserify__('./messages');
 var validation              = __browserify__('./validation');
 var types                   = __browserify__('./types');
 var schema                  = __browserify__('./schema');
@@ -971,10 +1160,12 @@ module.exports = {
 
   FormFor:FormFor, Message:Message,
 
-  schema:schema, types:types, validators:validators, validation:validation, input:input
+  PropTypes:PropTypes,
+
+  schema:schema, types:types, validators:validators, validation:validation, messages:messages, input:input
 };
 
-},{"./Field":2,"./FieldMixin":3,"./Fieldset":4,"./FieldsetMixin":5,"./Form":6,"./FormContextMixin":7,"./FormElementMixin":8,"./FormFor":9,"./FormMixin":10,"./Message":11,"./RepeatingFieldset":12,"./RepeatingFieldsetMixin":13,"./input":21,"./schema":23,"./types":24,"./validation":26,"./validators":27}],19:[function(__browserify__,module,exports){
+},{"./Field":2,"./FieldMixin":3,"./Fieldset":4,"./FieldsetMixin":5,"./Form":6,"./FormContextMixin":7,"./FormElementMixin":8,"./FormFor":9,"./FormMixin":10,"./Message":11,"./PropTypes":12,"./RepeatingFieldset":13,"./RepeatingFieldsetMixin":14,"./input":22,"./messages":23,"./schema":24,"./types":25,"./validation":27,"./validators":28}],20:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1023,17 +1214,17 @@ var CheckboxGroup = React.createClass({displayName: 'CheckboxGroup',
       var checked = value && value.indexOf(option.value) > -1;
       return (
         React.DOM.div(
-          {className:"react-forms-checkbox-group-button",
+          {className:"rf-checkbox-group-button",
           key:option.value}, 
-          React.DOM.label( {className:"react-forms-checkbox-group-label"}, 
+          React.DOM.label( {className:"rf-checkbox-group-label"}, 
             React.DOM.input(
               {onChange:this.onChange,
               checked:checked,
-              className:"react-forms-checkbox-group-checkbox",
+              className:"rf-checkbox-group-checkbox",
               type:"checkbox",
               name:name,
               value:option.value} ),
-            React.DOM.span( {className:"react-forms-checkbox-group-caption"}, 
+            React.DOM.span( {className:"rf-checkbox-group-caption"}, 
               option.name
             )
           )
@@ -1042,7 +1233,7 @@ var CheckboxGroup = React.createClass({displayName: 'CheckboxGroup',
     }.bind(this));
 
     return (
-      React.DOM.div( {className:"react-forms-checkbox-group"}, 
+      React.DOM.div( {className:"rf-checkbox-group"}, 
         options
       )
     );
@@ -1051,7 +1242,7 @@ var CheckboxGroup = React.createClass({displayName: 'CheckboxGroup',
 
 module.exports = CheckboxGroup;
 
-},{}],20:[function(__browserify__,module,exports){
+},{}],21:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1062,18 +1253,18 @@ var React = (window.React);
 function renderEmptyOption(props, onChange) {
   return (
     React.DOM.div(
-        {className:"react-forms-radio-button-group-button",
+        {className:"rf-radio-button-group-button",
         key:""}, 
       React.DOM.label(
-        {className:"react-forms-radio-button-group-label"}, 
+        {className:"rf-radio-button-group-label"}, 
         React.DOM.input(
           {checked:props.checked,
-          className:"react-forms-radio-button-group-radio",
+          className:"rf-radio-button-group-radio",
           type:"radio",
           name:props.name,
           onChange:onChange.bind(null, null),
           value:""} ),
-        React.DOM.span( {className:"react-forms-radio-button-group-caption"}, 
+        React.DOM.span( {className:"rf-radio-button-group-caption"}, 
           "none"
         )
       )
@@ -1101,7 +1292,7 @@ var RadioButtonGroup = React.createClass({displayName: 'RadioButtonGroup',
       }
 
       return (
-        React.DOM.div( {className:"react-forms-radio-button-group"}, 
+        React.DOM.div( {className:"rf-radio-button-group"}, 
           options
         )
       );
@@ -1114,18 +1305,18 @@ var RadioButtonGroup = React.createClass({displayName: 'RadioButtonGroup',
           false;
       return (
         React.DOM.div(
-          {className:"react-forms-radio-button-group-button",
+          {className:"rf-radio-button-group-button",
           key:option.value}, 
           React.DOM.label(
-            {className:"react-forms-radio-button-group-label"}, 
+            {className:"rf-radio-button-group-label"}, 
             React.DOM.input(
               {checked:checked,
-              className:"react-forms-radio-button-group-radio",
+              className:"rf-radio-button-group-radio",
               type:"radio",
               name:name,
               onChange:this.onChange.bind(null, option.value),
               value:option.value} ),
-            React.DOM.span( {className:"react-forms-radio-button-group-caption"}, 
+            React.DOM.span( {className:"rf-radio-button-group-caption"}, 
               option.name
             )
           )
@@ -1142,7 +1333,7 @@ var RadioButtonGroup = React.createClass({displayName: 'RadioButtonGroup',
 
 module.exports = RadioButtonGroup;
 
-},{}],21:[function(__browserify__,module,exports){
+},{}],22:[function(__browserify__,module,exports){
 'use strict';
 /**
  * @jsx React.DOM
@@ -1152,175 +1343,20 @@ module.exports = {
   RadioButtonGroup: __browserify__('./RadioButtonGroup')
 };
 
-},{"./CheckboxGroup":19,"./RadioButtonGroup":20}],22:[function(__browserify__,module,exports){
+},{"./CheckboxGroup":20,"./RadioButtonGroup":21}],23:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
+module.exports = {
+  INVALID_VALUE: 'invalid value',
+  VALUE_IS_REQUIRED: 'value is required',
+  AT_LEAST_ONE_ITEM_IS_REQUIRED: 'at least one item is required',
+  IS_NOT_A_DATE: 'should be a date in YYYY-MM-DD format'
+};
 
-
-  function Lens(data, path) {
-    this.__data = data;
-    this.__path = path;
-  }
-
-  /**
-   * Return a value this lense points to
-   */
-  Lens.prototype.val=function() {
-    var value = this.__data;
-    for (var i = 0, len = this.__path.length; i < len; i++) {
-      var key = this.__path[i];
-      value = value[key.key];
-      if (value === undefined && key.defaultValue !== undefined) {
-        value = key.defaultValue;
-      }
-    }
-    return value;
-  };
-
-  Lens.prototype.isUndefined=function() {
-    var value = this.__data;
-
-    if (value === undefined) {
-      return true;
-    }
-
-    for (var i = 0, len = this.__path.length; i < len; i++) {
-      var key = this.__path[i];
-      value = value[key.key];
-      if (value === undefined) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  Lens.prototype.root=function() {
-    return this.__data;
-  };
-
-  Lens.prototype.parent=function() {
-    if (this.__path.length === 0) {
-      return undefined;
-    } else {
-      var path = this.__path.slice(0, this.__path.length - 1);
-      return new this.constructor(this.__data, path);
-    }
-  };
-
-  /**
-   * Get a lens by a specified key
-   *
-   * @param {Key} key
-   * @param {Any} defaultValue
-   */
-  Lens.prototype.get=function(key, defaultValue) {
-    return new this.constructor(
-      this.__data, this.__path.concat({key:key, defaultValue:defaultValue}));
-  };
-
-  /**
-   * Shortcut for lens.get(key).mod(value)
-   *
-   * @param {Key} key
-   * @param {Any} value
-   */
-  Lens.prototype.set=function(key, value) {
-    return this.get(key).mod(value);
-  };
-
-  Lens.prototype.update=function(values) {
-    var data = this.val();
-    var copy = {};
-    var k;
-    for (k in data) {
-      copy[k] = data[k];
-    }
-    for (k in values) {
-      copy[k] = values[k];
-    }
-    return this.mod(copy);
-  };
-
-  /**
-   * Return lens for a new data which points to the same location.
-   *
-   * @param {Any} data
-   */
-  Lens.prototype.for=function(data) {
-    return new this.constructor(data, this.__path);
-  };
-
-  /**
-   * Return a new copy of data by replacing a value this lens points to with a
-   * new value.
-   *
-   * @param {Any} value
-   */
-  Lens.prototype.mod=function(value) {
-    var updated, newData, prevData;
-    var data = this.__data;
-    var path = this.__path;
-
-    if (path.length === 0) {
-      return this.for(value);
-    }
-
-    for (var i = 0, len = path.length; i < len; i++) {
-      var key = path[i];
-
-      // copy through changed path
-      if (Array.isArray(data)) {
-        updated = data.slice(0);
-      } else if (typeof data === 'object') {
-        updated = {};
-        for (var k in data) {
-          updated[k] = data[k];
-        }
-      }
-
-      // store reference to newly created root data
-      if (newData === undefined) {
-        newData = updated;
-      }
-
-      // mutate previously copied data with updated value
-      if (prevData !== undefined) {
-        prevData[path[i - 1].key] = updated;
-      }
-
-      // if we are at the last path key update data with a new value
-      if (i === len - 1) {
-        updated[key.key] = value;
-      } else {
-        data = updated[key.key];
-        if (data === undefined && key.defaultValue !== undefined) {
-          data = key.defaultValue;
-        }
-      }
-
-      prevData = updated;
-    }
-
-    return this.for(newData);
-  };
-
-  /**
-   * Make a new lens for data
-   *
-   * @param {Any} data
-   */
-  Lens.make=function(data) {
-    return new this(data, []);
-  };
-
-
-module.exports = Lens.make.bind(Lens);
-
-},{}],23:[function(__browserify__,module,exports){
+},{}],24:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1373,6 +1409,10 @@ for(Node____Key in Node){if(Node.hasOwnProperty(Node____Key)){SchemaNode[Node___
     return results;
   };
 
+  SchemaNode.prototype.get=function(name) {
+    return this.children[name];
+  };
+
 
 for(Node____Key in Node){if(Node.hasOwnProperty(Node____Key)){ListNode[Node____Key]=Node[Node____Key];}}ListNode.prototype=Object.create(____SuperProtoOfNode);ListNode.prototype.constructor=ListNode;ListNode.__superConstructor__=Node;
 
@@ -1390,6 +1430,10 @@ for(Node____Key in Node){if(Node.hasOwnProperty(Node____Key)){ListNode[Node____K
     this.props = props;
     this.children = args[0];
   }
+
+  ListNode.prototype.get=function() {
+    return this.children;
+  };
 
 
 function forEachNested(collection, func, context) {
@@ -1444,11 +1488,13 @@ module.exports = {
   createType:createType
 };
 
-},{"./utils":25}],24:[function(__browserify__,module,exports){
+},{"./utils":26}],25:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
+
+var messages = __browserify__('./messages');
 
 function idSerialize(value) {
   return value === null ? '' : value;
@@ -1474,7 +1520,7 @@ var number = {
     } else if (!isNaN(parseFloat(value)) && isFinite(value)) {
       return parseFloat(value);
     } else {
-      throw new Error('invalid value');
+      throw new Error(messages.INVALID_VALUE);
     }
   }
 };
@@ -1501,13 +1547,13 @@ var date = {
     }
 
     if (!isDateRe.exec(value)) {
-      throw new Error('should be a date in YYYY-MM-DD format');
+      throw new Error(messages.IS_NOT_A_DATE);
     }
 
     value = new Date(value);
 
     if (isNaN(value.getTime())) {
-      throw new Error('invalid date');
+      throw new Error(messages.INVALID_VALUE);
     }
 
     return value;
@@ -1520,7 +1566,7 @@ function pad(num, size) {
 
 module.exports = {any:any, string:string, number:number, date:date};
 
-},{}],25:[function(__browserify__,module,exports){
+},{"./messages":23}],26:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1565,9 +1611,22 @@ function isString(o) {
   return toString.call(o) === '[object String]';
 }
 
-module.exports = {mergeInto:mergeInto, merge:merge, invariant:invariant, emptyFunction:emptyFunction, isString:isString};
+function deepFreeze (o) {
+  if (Object.freeze === undefined || o === null || typeof o !== 'object') {
+    return;
+  }
+  Object.freeze(o);
 
-},{}],26:[function(__browserify__,module,exports){
+  for (var k in o) {
+    if (o.hasOwnProperty(k)) {
+      deepFreeze(o[k]);
+    }
+  }
+}
+
+module.exports = {mergeInto:mergeInto, merge:merge, invariant:invariant, emptyFunction:emptyFunction, isString:isString, deepFreeze:deepFreeze};
+
+},{}],27:[function(__browserify__,module,exports){
 /**
  * Schema validation
  *
@@ -1575,10 +1634,11 @@ module.exports = {mergeInto:mergeInto, merge:merge, invariant:invariant, emptyFu
  */
 'use strict';
 
-var utils             = __browserify__('./utils');
-var schema            = __browserify__('./schema');
-var getTypeFromSchema = __browserify__('./getTypeFromSchema');
-var validators        = __browserify__('./validators');
+var utils                     = __browserify__('./utils');
+var schema                    = __browserify__('./schema');
+var getTypeFromSchema         = __browserify__('./getTypeFromSchema');
+var getDefaultValueForSchema  = __browserify__('./getDefaultValueForSchema');
+var validators                = __browserify__('./validators');
 
 var exists     = validators.exists;
 var nonEmpty   = validators.nonEmpty;
@@ -1665,7 +1725,7 @@ function validateOnly(node, value, children) {
   } else if (schema.isList(node)) {
     return validateListOnly(node, value, children);
   } else if (schema.isProperty(node)) {
-    return validateProperty(node, value, children);
+    return validateProperty(node, value);
   } else {
     utils.invariant(
       false,
@@ -1715,12 +1775,13 @@ function validateSchemaOnly(node, value, children) {
     return deserialized;
   }
 
-  var validator = exists.andThen(node.props.validate);
-  var validation = validator(value, node.props);
+  var validation = node.props.validate ?
+    validators.validator(node.props.validate)(value, node.props) :
+    validators.success;
 
   return {
     value: deserialized.value,
-    validation: {validation:validation}
+    validation: {validation:validation, children:children}
   };
 }
 
@@ -1730,7 +1791,10 @@ function validateSchemaChildren(node, value) {
 
   if (value && node.children) {
     for (var name in node.children) {
-      var childValidation = validate(node.children[name], value[name]);
+      var childValue = value[name] !== undefined ?
+        value[name] :
+        getDefaultValueForSchema(node.children[name]);
+      var childValidation = validate(node.children[name], childValue);
 
       if (isFailure(childValidation.validation)) {
         validation[name] = childValidation.validation;
@@ -1777,7 +1841,7 @@ function validateListOnly(node, value, children) {
 
   return {
     value: deserialized.value,
-    validation: {validation:validation}
+    validation: {validation:validation, children:children}
   };
 }
 
@@ -1829,7 +1893,7 @@ function isSuccess(validation) {
 }
 
 function isFailure(validation) {
-  return (
+  return validation && (
     (validation.validation && validation.validation.failure !== undefined)
     || (validation.children !== undefined && !areChildrenValid(validation.children))
   );
@@ -1853,16 +1917,17 @@ module.exports = {
   isSuccess:isSuccess, isFailure:isFailure
 };
 
-},{"./getTypeFromSchema":17,"./schema":23,"./utils":25,"./validators":27}],27:[function(__browserify__,module,exports){
+},{"./getDefaultValueForSchema":17,"./getTypeFromSchema":18,"./schema":24,"./utils":26,"./validators":28}],28:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
 var utils         = __browserify__('./utils');
+var messages      = __browserify__('./messages');
 
 var success = {failure: undefined};
-var commonFailure = {failure: 'invalid value'};
+var commonFailure = {failure: messages.INVALID_VALUE};
 
 function isSuccess(validation) {
   return validation.failure === undefined;
@@ -1937,12 +2002,12 @@ function andThen(first, second) {
 
 var exists = validatorEmpty(function(value, schema) 
   {return schema.required && (value === null || value === undefined) ?
-    'value is required' :
+    messages.VALUE_IS_REQUIRED :
     true;});
 
 var nonEmpty = validator(function(value, schema) 
   {return schema.nonEmpty && value.length === 0 ?
-    'at least one item is required' :
+    messages.AT_LEAST_ONE_ITEM_IS_REQUIRED :
     true;});
 
 module.exports = {
@@ -1957,4 +2022,4 @@ module.exports = {
   nonEmpty:nonEmpty
 };
 
-},{"./utils":25}]},{},[1])
+},{"./messages":23,"./utils":26}]},{},[1])

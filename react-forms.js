@@ -9,18 +9,19 @@
   return __browserify__('./lib/');
 });
 
-},{"./lib/":19}],2:[function(__browserify__,module,exports){
+},{"./lib/":20}],2:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
-var React           = (window.React);
-var cx              = React.addons.classSet;
-var mergeInto       = __browserify__('./utils').mergeInto;
-var FieldMixin      = __browserify__('./FieldMixin');
-var Message         = __browserify__('./Message');
-var isFailure       = __browserify__('./validation').isFailure;
+var React       = (window.React);
+var cx          = React.addons.classSet;
+var merge       = __browserify__('./utils').merge;
+var FieldMixin  = __browserify__('./FieldMixin');
+var Message     = __browserify__('./Message');
+var Label       = __browserify__('./Label');
+var isFailure   = __browserify__('./validation').isFailure;
 
 /**
  * Field component represents values which correspond to Property schema nodes
@@ -36,26 +37,6 @@ var Field = React.createClass({displayName: 'Field',
     label: React.PropTypes.string
   },
 
-  renderLabel: function(props) {
-    var schema = this.value().schema;
-    var label = this.props.label ? this.props.label : schema.props.label;
-    var hint = this.props.hint ? this.props.hint : schema.props.hint;
-    var labelProps = {className: 'rf-label'};
-    if (props) {
-      mergeInto(labelProps, props);
-    }
-    return (label || hint) && React.DOM.label(labelProps,
-      label,
-      hint && React.DOM.span( {className:"rf-hint"}, hint));
-  },
-
-  onBlur: function() {
-    var value = this.value();
-    if (value.isUndefined) {
-      this.onValueUpdate(value.update({value: value.value}));
-    }
-  },
-
   render: function() {
     var value = this.value();
     var externalValidation = this.externalValidation();
@@ -63,8 +44,8 @@ var Field = React.createClass({displayName: 'Field',
                  || isFailure(externalValidation.validation);
 
     var className = cx({
-      'rf-field': true,
-      'rf-invalid': isInvalid
+      'rf-Field': true,
+      'rf-Field--invalid': isInvalid
     });
 
     var id = this._rootNodeID;
@@ -73,7 +54,7 @@ var Field = React.createClass({displayName: 'Field',
 
     return (
       React.DOM.div( {className:className}, 
-        this.renderLabel({htmlFor: id}),
+        this.renderLabel(id),
         this.transferPropsTo(input),
         isFailure(externalValidation) &&
           Message(null, externalValidation.validation.failure),
@@ -81,12 +62,32 @@ var Field = React.createClass({displayName: 'Field',
           Message(null, value.validation.validation.failure)
       )
     );
+  },
+
+  renderLabel: function(htmlFor) {
+    var schema = this.value().schema;
+    return (
+      Label(
+        {htmlFor:htmlFor,
+        className:"rf-Field__label",
+        schema:schema,
+        label:this.props.label,
+        hint:this.props.hint}
+        )
+    );
+  },
+
+  onBlur: function() {
+    var value = this.value();
+    if (value.isUndefined) {
+      this.onValueUpdate(value.update({value: value.value}));
+    }
   }
 });
 
 module.exports = Field;
 
-},{"./FieldMixin":3,"./Message":11,"./utils":26,"./validation":27}],3:[function(__browserify__,module,exports){
+},{"./FieldMixin":3,"./Label":11,"./Message":12,"./utils":27,"./validation":28}],3:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -160,13 +161,14 @@ function getValueFromEvent(e) {
 
 module.exports = FieldMixin;
 
-},{"./FormElementMixin":8,"./utils":26}],4:[function(__browserify__,module,exports){
+},{"./FormElementMixin":8,"./utils":27}],4:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
 var React         = (window.React);
+var Label         = __browserify__('./Label');
 var FieldsetMixin = __browserify__('./FieldsetMixin');
 
 /**
@@ -180,17 +182,29 @@ var Fieldset = React.createClass({displayName: 'Fieldset',
   render: function() {
     var schema = this.value().schema;
     return this.transferPropsTo(
-      React.DOM.div( {className:"rf-fieldset"}, 
-        schema.props.label && React.DOM.h4(null, schema.props.label),
+      React.DOM.div( {className:"rf-Fieldset"}, 
+        this.renderLabel(),
         schema.map(this.renderField)
       )
+    );
+  },
+
+  renderLabel: function() {
+    var schema = this.value().schema;
+    return (
+      Label(
+        {className:"rf-Fieldset__label",
+        schema:schema,
+        label:this.props.label,
+        hint:this.props.hint}
+        )
     );
   }
 });
 
 module.exports = Fieldset;
 
-},{"./FieldsetMixin":5}],5:[function(__browserify__,module,exports){
+},{"./FieldsetMixin":5,"./Label":11}],5:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -222,13 +236,14 @@ var FieldsetMixin = {
 
 module.exports = FieldsetMixin;
 
-},{"./FormContextMixin":7,"./FormElementMixin":8,"./createComponentFromSchema":16}],6:[function(__browserify__,module,exports){
+},{"./FormContextMixin":7,"./FormElementMixin":8,"./createComponentFromSchema":17}],6:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
 var React     = (window.React);
+var cx        = React.addons.classSet;
 var FormMixin = __browserify__('./FormMixin');
 var FormFor   = __browserify__('./FormFor');
 var v         = __browserify__('./validation');
@@ -244,8 +259,12 @@ var Form = React.createClass({displayName: 'Form',
 
   render: function() {
     var component = this.props.component;
+    var className = cx({
+      'rf-Form': true,
+      'rf-Form--invalid': v.isFailure(this.value().validation)
+    });
     return this.transferPropsTo(
-      component( {className:"rf-form"}, 
+      component( {className:className}, 
         FormFor(null )
       )
     );
@@ -267,7 +286,7 @@ var Form = React.createClass({displayName: 'Form',
 
 module.exports = Form;
 
-},{"./FormFor":9,"./FormMixin":10,"./validation":27}],7:[function(__browserify__,module,exports){
+},{"./FormFor":9,"./FormMixin":10,"./validation":28}],7:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -402,7 +421,7 @@ var FormElementMixin = {
 
 module.exports = FormElementMixin;
 
-},{"./FormContextMixin":7,"./PropTypes":12,"./validation":27}],9:[function(__browserify__,module,exports){
+},{"./FormContextMixin":7,"./PropTypes":13,"./validation":28}],9:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -441,7 +460,7 @@ var FormFor = React.createClass({displayName: 'FormFor',
 
 module.exports = FormFor;
 
-},{"./FormElementMixin":8,"./createComponentFromSchema":16}],10:[function(__browserify__,module,exports){
+},{"./FormElementMixin":8,"./createComponentFromSchema":17}],10:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -542,7 +561,54 @@ var FormMixin = {
 
 module.exports = FormMixin;
 
-},{"./FormContextMixin":7,"./Value":15,"./getDefaultValueForSchema":17,"./validation":27}],11:[function(__browserify__,module,exports){
+},{"./FormContextMixin":7,"./Value":16,"./getDefaultValueForSchema":18,"./validation":28}],11:[function(__browserify__,module,exports){
+/**
+ * @jsx React.DOM
+ */
+'use strict';
+
+var React = (window.React);
+
+var Label = React.createClass({displayName: 'Label',
+
+  propTypes: {
+    schema: React.PropTypes.object,
+    label: React.PropTypes.string,
+    hint: React.PropTypes.string
+  },
+
+  render: function() {
+    var schema = this.props.schema;
+    var label = this.props.label ? this.props.label : schema.props.label;
+    var hint = this.props.hint ? this.props.hint : schema.props.hint;
+    if (!hint && !label) {
+      return React.DOM.span(null );
+    }
+    return this.transferPropsTo(
+      React.DOM.label( {className:"rf-Label"}, 
+        label,
+        hint && Hint( {hint:hint} )
+      )
+    );
+  }
+});
+
+var Hint = React.createClass({displayName: 'Hint',
+
+  propTypes: {
+    hint: React.PropTypes.string.isRequired
+  },
+
+  render: function() {
+    return this.transferPropsTo(
+      React.DOM.span( {className:"rf-Hint"}, this.props.hint)
+    );
+  }
+});
+
+module.exports = Label;
+
+},{}],12:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -554,7 +620,7 @@ var Message = React.createClass({displayName: 'Message',
 
   render: function() {
     return this.transferPropsTo(
-      React.DOM.span( {className:"rf-message"}, 
+      React.DOM.span( {className:"rf-Message"}, 
         this.props.children
       )
     );
@@ -563,7 +629,7 @@ var Message = React.createClass({displayName: 'Message',
 
 module.exports = Message;
 
-},{}],12:[function(__browserify__,module,exports){
+},{}],13:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -582,25 +648,26 @@ function Value(props, name, component) {
 
 module.exports = {Value:Value};
 
-},{"./Value":15}],13:[function(__browserify__,module,exports){
+},{"./Value":16}],14:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
 'use strict';
 
 var React                   = (window.React);
+var Label                   = __browserify__('./Label');
 var RepeatingFieldsetMixin  = __browserify__('./RepeatingFieldsetMixin');
 
 var Item = React.createClass({displayName: 'Item',
 
   render: function() {
     return this.transferPropsTo(
-      React.DOM.div( {className:"rf-repeating-fieldset-item"}, 
+      React.DOM.div( {className:"rf-RepeatingFieldset__item"}, 
         this.props.children,
         React.DOM.button(
           {onClick:this.onRemove,
           type:"button",
-          className:"rf-repeating-fieldset-remove"}, "×")
+          className:"rf-RepeatingFieldset__remove"}, "×")
       )
     );
   },
@@ -638,14 +705,26 @@ var RepeatingFieldset = React.createClass({displayName: 'RepeatingFieldset',
       );}.bind(this)
     );
     return this.transferPropsTo(
-      React.DOM.div( {className:"rf-repeating-fieldset"}, 
-        schema.props.label && React.DOM.h4(null, schema.props.label),
+      React.DOM.div( {className:"rf-RepeatingFieldset"}, 
+        this.renderLabel(),
         fields,
         React.DOM.button(
           {type:"button",
           onClick:this.onAdd,
-          className:"rf-repeating-fieldset-add"}, "Add")
+          className:"rf-RepeatingFieldset__add"}, "Add")
       )
+    );
+  },
+
+  renderLabel: function() {
+    var schema = this.value().schema;
+    return (
+      Label(
+        {className:"rf-RepeatingFieldset__label",
+        schema:schema,
+        label:this.props.label,
+        hint:this.props.hint}
+        )
     );
   },
 
@@ -658,7 +737,7 @@ var RepeatingFieldset = React.createClass({displayName: 'RepeatingFieldset',
 module.exports = RepeatingFieldset;
 module.exports.Item = Item;
 
-},{"./RepeatingFieldsetMixin":14}],14:[function(__browserify__,module,exports){
+},{"./Label":11,"./RepeatingFieldsetMixin":15}],15:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -724,7 +803,7 @@ var RepeatingFieldsetMixin = {
 
 module.exports = RepeatingFieldsetMixin;
 
-},{"./FormContextMixin":7,"./FormElementMixin":8,"./createComponentFromSchema":16}],15:[function(__browserify__,module,exports){
+},{"./FormContextMixin":7,"./FormElementMixin":8,"./createComponentFromSchema":17}],16:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  * @preventMunge
@@ -1013,7 +1092,7 @@ function isValue(value) {
 module.exports = make;
 module.exports.isValue = isValue;
 
-},{"./getDefaultValueForSchema":17,"./schema":24,"./utils":26,"./validation":27}],16:[function(__browserify__,module,exports){
+},{"./getDefaultValueForSchema":18,"./schema":25,"./utils":27,"./validation":28}],17:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1050,7 +1129,7 @@ function createComponentFromSchema(node) {
 
 module.exports = createComponentFromSchema;
 
-},{"./Field":2,"./Fieldset":4,"./RepeatingFieldset":13,"./schema":24,"./utils":26}],17:[function(__browserify__,module,exports){
+},{"./Field":2,"./Fieldset":4,"./RepeatingFieldset":14,"./schema":25,"./utils":27}],18:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1085,7 +1164,7 @@ function getDefaultValueForSchema(node) {
 
 module.exports = getDefaultValueForSchema;
 
-},{"./schema":24,"./utils":26}],18:[function(__browserify__,module,exports){
+},{"./schema":25,"./utils":27}],19:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1123,7 +1202,7 @@ function getTypeFromSchema(node) {
 
 module.exports = getTypeFromSchema;
 
-},{"./schema":24,"./types":25,"./utils":26}],19:[function(__browserify__,module,exports){
+},{"./schema":25,"./types":26,"./utils":27}],20:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1165,7 +1244,7 @@ module.exports = {
   schema:schema, types:types, validators:validators, validation:validation, messages:messages, input:input
 };
 
-},{"./Field":2,"./FieldMixin":3,"./Fieldset":4,"./FieldsetMixin":5,"./Form":6,"./FormContextMixin":7,"./FormElementMixin":8,"./FormFor":9,"./FormMixin":10,"./Message":11,"./PropTypes":12,"./RepeatingFieldset":13,"./RepeatingFieldsetMixin":14,"./input":22,"./messages":23,"./schema":24,"./types":25,"./validation":27,"./validators":28}],20:[function(__browserify__,module,exports){
+},{"./Field":2,"./FieldMixin":3,"./Fieldset":4,"./FieldsetMixin":5,"./Form":6,"./FormContextMixin":7,"./FormElementMixin":8,"./FormFor":9,"./FormMixin":10,"./Message":12,"./PropTypes":13,"./RepeatingFieldset":14,"./RepeatingFieldsetMixin":15,"./input":23,"./messages":24,"./schema":25,"./types":26,"./validation":28,"./validators":29}],21:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1214,17 +1293,17 @@ var CheckboxGroup = React.createClass({displayName: 'CheckboxGroup',
       var checked = value && value.indexOf(option.value) > -1;
       return (
         React.DOM.div(
-          {className:"rf-checkbox-group-button",
+          {className:"rf-CheckboxGroup__button",
           key:option.value}, 
-          React.DOM.label( {className:"rf-checkbox-group-label"}, 
+          React.DOM.label( {className:"rf-CheckboxGroup__label"}, 
             React.DOM.input(
               {onChange:this.onChange,
               checked:checked,
-              className:"rf-checkbox-group-checkbox",
+              className:"rf-CheckboxGroup__checkbox",
               type:"checkbox",
               name:name,
               value:option.value} ),
-            React.DOM.span( {className:"rf-checkbox-group-caption"}, 
+            React.DOM.span( {className:"rf-CheckboxGroup__caption"}, 
               option.name
             )
           )
@@ -1233,7 +1312,7 @@ var CheckboxGroup = React.createClass({displayName: 'CheckboxGroup',
     }.bind(this));
 
     return (
-      React.DOM.div( {className:"rf-checkbox-group"}, 
+      React.DOM.div( {className:"rf-CheckboxGroup"}, 
         options
       )
     );
@@ -1242,7 +1321,7 @@ var CheckboxGroup = React.createClass({displayName: 'CheckboxGroup',
 
 module.exports = CheckboxGroup;
 
-},{}],21:[function(__browserify__,module,exports){
+},{}],22:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1253,18 +1332,18 @@ var React = (window.React);
 function renderEmptyOption(props, onChange) {
   return (
     React.DOM.div(
-        {className:"rf-radio-button-group-button",
+        {className:"rf-RadioButtonGroup__button",
         key:""}, 
       React.DOM.label(
-        {className:"rf-radio-button-group-label"}, 
+        {className:"rf-RadioButtonGroup__label"}, 
         React.DOM.input(
           {checked:props.checked,
-          className:"rf-radio-button-group-radio",
+          className:"rf-RadioButtonGroup__radio",
           type:"radio",
           name:props.name,
           onChange:onChange.bind(null, null),
           value:""} ),
-        React.DOM.span( {className:"rf-radio-button-group-caption"}, 
+        React.DOM.span( {className:"rf-RadioButtonGroup__caption"}, 
           "none"
         )
       )
@@ -1292,7 +1371,7 @@ var RadioButtonGroup = React.createClass({displayName: 'RadioButtonGroup',
       }
 
       return (
-        React.DOM.div( {className:"rf-radio-button-group"}, 
+        React.DOM.div( {className:"rf-RadioButtonGroup"}, 
           options
         )
       );
@@ -1305,18 +1384,18 @@ var RadioButtonGroup = React.createClass({displayName: 'RadioButtonGroup',
           false;
       return (
         React.DOM.div(
-          {className:"rf-radio-button-group-button",
+          {className:"rf-RadioButtonGroup__button",
           key:option.value}, 
           React.DOM.label(
-            {className:"rf-radio-button-group-label"}, 
+            {className:"rf-RadioButtonGroup__label"}, 
             React.DOM.input(
               {checked:checked,
-              className:"rf-radio-button-group-radio",
+              className:"rf-RadioButtonGroup__radio",
               type:"radio",
               name:name,
               onChange:this.onChange.bind(null, option.value),
               value:option.value} ),
-            React.DOM.span( {className:"rf-radio-button-group-caption"}, 
+            React.DOM.span( {className:"rf-RadioButtonGroup__caption"}, 
               option.name
             )
           )
@@ -1333,7 +1412,7 @@ var RadioButtonGroup = React.createClass({displayName: 'RadioButtonGroup',
 
 module.exports = RadioButtonGroup;
 
-},{}],22:[function(__browserify__,module,exports){
+},{}],23:[function(__browserify__,module,exports){
 'use strict';
 /**
  * @jsx React.DOM
@@ -1343,7 +1422,7 @@ module.exports = {
   RadioButtonGroup: __browserify__('./RadioButtonGroup')
 };
 
-},{"./CheckboxGroup":20,"./RadioButtonGroup":21}],23:[function(__browserify__,module,exports){
+},{"./CheckboxGroup":21,"./RadioButtonGroup":22}],24:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1356,7 +1435,7 @@ module.exports = {
   IS_NOT_A_DATE: 'should be a date in YYYY-MM-DD format'
 };
 
-},{}],24:[function(__browserify__,module,exports){
+},{}],25:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1488,7 +1567,7 @@ module.exports = {
   createType:createType
 };
 
-},{"./utils":26}],25:[function(__browserify__,module,exports){
+},{"./utils":27}],26:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1566,7 +1645,7 @@ function pad(num, size) {
 
 module.exports = {any:any, string:string, number:number, date:date};
 
-},{"./messages":23}],26:[function(__browserify__,module,exports){
+},{"./messages":24}],27:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1585,8 +1664,12 @@ function mergeInto(dst, src) {
 
 function merge(a, b) {
   var result = {};
-  mergeInto(result, a);
-  mergeInto(result, b);
+  if (a) {
+    mergeInto(result, a);
+  }
+  if (b) {
+    mergeInto(result, b);
+  }
   return result;
 }
 
@@ -1626,7 +1709,7 @@ function deepFreeze (o) {
 
 module.exports = {mergeInto:mergeInto, merge:merge, invariant:invariant, emptyFunction:emptyFunction, isString:isString, deepFreeze:deepFreeze};
 
-},{}],27:[function(__browserify__,module,exports){
+},{}],28:[function(__browserify__,module,exports){
 /**
  * Schema validation
  *
@@ -1917,7 +2000,7 @@ module.exports = {
   isSuccess:isSuccess, isFailure:isFailure
 };
 
-},{"./getDefaultValueForSchema":17,"./getTypeFromSchema":18,"./schema":24,"./utils":26,"./validators":28}],28:[function(__browserify__,module,exports){
+},{"./getDefaultValueForSchema":18,"./getTypeFromSchema":19,"./schema":25,"./utils":27,"./validators":29}],29:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -2022,4 +2105,4 @@ module.exports = {
   nonEmpty:nonEmpty
 };
 
-},{"./messages":23,"./utils":26}]},{},[1])
+},{"./messages":24,"./utils":27}]},{},[1])

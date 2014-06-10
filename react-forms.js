@@ -17,7 +17,6 @@
 
 var React       = (window.React);
 var cx          = React.addons.classSet;
-var merge       = __browserify__('./utils').merge;
 var FieldMixin  = __browserify__('./FieldMixin');
 var Message     = __browserify__('./Message');
 var Label       = __browserify__('./Label');
@@ -87,7 +86,7 @@ var Field = React.createClass({displayName: 'Field',
 
 module.exports = Field;
 
-},{"./FieldMixin":3,"./Label":11,"./Message":12,"./utils":27,"./validation":28}],3:[function(__browserify__,module,exports){
+},{"./FieldMixin":3,"./Label":11,"./Message":12,"./validation":28}],3:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -275,11 +274,12 @@ var Form = React.createClass({displayName: 'Form',
   },
 
   valueUpdated: function(value) {
+    var isSuccess = v.isSuccess(value.validation);
     if (this.props.onUpdate) {
-      this.props.onUpdate(value.value, value);
+      this.props.onUpdate(value.value, isSuccess);
     }
-    if (this.props.onChange && v.isSuccess(value.validation)) {
-      this.props.onChange(value.value, value);
+    if (this.props.onChange && isSuccess) {
+      this.props.onChange(value.value);
     }
   }
 });
@@ -694,7 +694,6 @@ var RepeatingFieldset = React.createClass({displayName: 'RepeatingFieldset',
   },
 
   render: function() {
-    var schema = this.value().schema;
     var Component = this.props.item;
     var fields = this.renderFields().map(function(item) 
       {return Component(
@@ -840,10 +839,6 @@ var getDefaultValueForSchema = __browserify__('./getDefaultValueForSchema');
 
     if (this.serialized === undefined) {
       this.serialized = v.serialize(schema, this.value);
-    }
-
-    if ("development" !== 'production') {
-      u.deepFreeze(this);
     }
   }
 
@@ -1694,20 +1689,7 @@ function isString(o) {
   return toString.call(o) === '[object String]';
 }
 
-function deepFreeze (o) {
-  if (Object.freeze === undefined || o === null || typeof o !== 'object') {
-    return;
-  }
-  Object.freeze(o);
-
-  for (var k in o) {
-    if (o.hasOwnProperty(k)) {
-      deepFreeze(o[k]);
-    }
-  }
-}
-
-module.exports = {mergeInto:mergeInto, merge:merge, invariant:invariant, emptyFunction:emptyFunction, isString:isString, deepFreeze:deepFreeze};
+module.exports = {mergeInto:mergeInto, merge:merge, invariant:invariant, emptyFunction:emptyFunction, isString:isString};
 
 },{}],28:[function(__browserify__,module,exports){
 /**

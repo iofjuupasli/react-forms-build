@@ -496,8 +496,16 @@ var FormStateMixin = {
   },
 
   componentWillReceiveProps: function(nextProps) {
-    if (nextProps.value !== undefined) {
-      this.setState(this._getFormState(nextProps.value));
+    // use either new value or current value
+    var value = nextProps.value || this.state.value;
+
+    // if schema changes we need to update value
+    if (nextProps.schema !== this.props.schema) {
+      var newValue = this.state.value.forSchema(nextProps.schema);
+      this.setState(this._getFormState(newValue));
+    // if new value is available we need to update it
+    } else if (nextProps.value !== undefined) {
+      this.setState(this._getFormState(value));
     }
   },
 
@@ -852,7 +860,13 @@ var getDefaultValueForSchema = __browserify__('./getDefaultValueForSchema');
     return value;
   };
 
-  Value.prototype.for=function(root) {
+  Value.prototype.forSchema=function(schema) {
+    var root = this.root();
+    var newRoot = make(schema, root.value, root.serialized, root.validation);
+    return this.for_(newRoot);
+  };
+
+  Value.prototype.for_=function(root) {
     var value = root;
 
     for (var i = 0, len = this.path.length; i < len; i++) {
@@ -895,7 +909,7 @@ var getDefaultValueForSchema = __browserify__('./getDefaultValueForSchema');
       current = current.parent;
     }
 
-    return this.for(make(
+    return this.for_(make(
       current.schema,
       update.value,
       update.serialized,

@@ -1476,11 +1476,13 @@ for(Node____Key in Node){if(Node.hasOwnProperty(Node____Key)){SchemaNode[Node___
 
     if (args.length !== 0) {
       forEachNested(args, function(arg)  {
-        utils.invariant(
-          arg.name,
-          'props fields should specify name property'
-        );
-        children[arg.name] = arg;
+        if (arg) {
+          utils.invariant(
+              arg.name,
+              'props fields should specify name property'
+          );
+          children[arg.name] = arg;
+        }
       });
     }
 

@@ -862,7 +862,8 @@ var getDefaultValueForSchema = __browserify__('./getDefaultValueForSchema');
 
   Value.prototype.forSchema=function(schema) {
     var root = this.root();
-    var newRoot = make(schema, root.value, root.serialized, root.validation);
+    // keep value and serialized value but drop validation state
+    var newRoot = make(schema, root.value, root.serialized);
     return this.for_(newRoot);
   };
 

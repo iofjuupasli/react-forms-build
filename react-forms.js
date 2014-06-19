@@ -1595,6 +1595,7 @@ module.exports = {
 'use strict';
 
 var messages = __browserify__('./messages');
+var utils    = __browserify__('./utils');
 
 function idSerialize(value) {
   return value === null ? '' : value;
@@ -1660,13 +1661,21 @@ var date = {
   }
 };
 
+var array = {
+  serialize: function (value) {
+    return value ? value : [];
+  },
+
+  deserialize: utils.emptyFunction.thatReturnsArgument
+};
+
 function pad(num, size) {
   return ('0000' + num).substr(-size);
 }
 
-module.exports = {any:any, string:string, number:number, date:date};
+module.exports = {any:any, string:string, number:number, date:date, array:array};
 
-},{"./messages":24}],27:[function(__browserify__,module,exports){
+},{"./messages":24,"./utils":27}],27:[function(__browserify__,module,exports){
 /**
  * @jsx React.DOM
  */
@@ -1707,6 +1716,10 @@ function emptyFunction() {
 
 emptyFunction.thatReturnsTrue = function() {
   return true;
+};
+
+emptyFunction.thatReturnsArgument = function(arg) {
+  return arg;
 };
 
 var toString = Object.prototype.toString;

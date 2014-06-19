@@ -273,13 +273,13 @@ var Form = React.createClass({displayName: 'Form',
     return {component: React.DOM.form};
   },
 
-  valueUpdated: function(value) {
+  valueUpdated: function(value, update) {
     var isSuccess = v.isSuccess(value.validation);
     if (this.props.onUpdate) {
-      this.props.onUpdate(value.value, isSuccess);
+      this.props.onUpdate(value.value, isSuccess, update);
     }
     if (this.props.onChange && isSuccess) {
-      this.props.onChange(value.value);
+      this.props.onChange(value.value, update);
     }
   }
 });
@@ -497,7 +497,11 @@ var FormStateMixin = {
 
   componentWillReceiveProps: function(nextProps) {
     // use either new value or current value
-    var value = nextProps.value || this.state.value;
+    // XXX: we read from pending state... this isn't good but fixes a lot of
+    // problems if you trigger update from some callback deep inside form
+    var value = nextProps.value
+      || (this._pendingState && this._pendingState.value)
+      || this.state.value;
 
     // if schema changes we need to update value
     if (nextProps.schema !== this.props.schema) {
@@ -539,9 +543,14 @@ var FormStateMixin = {
    * @param {Any} convertedValue
    */
   onValueUpdate: function(value) {
+    var update = {
+      schema: value.schema,
+      path: value.path
+    };
+
     this.setState(this._getFormState(value.root()), function()  {
       if (typeof this.valueUpdated === 'function') {
-        this.valueUpdated(this.state.value);
+        this.valueUpdated(this.state.value, update);
       }
     }.bind(this));
   },

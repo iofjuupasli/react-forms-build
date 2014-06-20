@@ -44,7 +44,8 @@ var Field = React.createClass({displayName: 'Field',
 
     var className = cx({
       'rf-Field': true,
-      'rf-Field--invalid': isInvalid
+      'rf-Field--invalid': isInvalid,
+      'rf-Field--dirty': !value.isUndefined
     });
 
     var id = this._rootNodeID;
@@ -52,7 +53,7 @@ var Field = React.createClass({displayName: 'Field',
     var input = this.renderInputComponent({id:id, onBlur: this.onBlur});
 
     return (
-      React.DOM.div( {className:className}, 
+      React.DOM.div( {className:cx(className, this.props.className)}, 
         this.renderLabel(id),
         this.transferPropsTo(input),
         isFailure(externalValidation) &&
@@ -167,6 +168,7 @@ module.exports = FieldMixin;
 'use strict';
 
 var React         = (window.React);
+var cx            = React.addons.classSet;
 var Label         = __browserify__('./Label');
 var FieldsetMixin = __browserify__('./FieldsetMixin');
 
@@ -181,7 +183,7 @@ var Fieldset = React.createClass({displayName: 'Fieldset',
   render: function() {
     var schema = this.value().schema;
     return this.transferPropsTo(
-      React.DOM.div( {className:"rf-Fieldset"}, 
+      React.DOM.div( {className:cx("rf-Fieldset", this.props.className)}, 
         this.renderLabel(),
         schema.map(this.renderField)
       )
@@ -672,6 +674,7 @@ module.exports = {Value:Value};
 'use strict';
 
 var React                   = (window.React);
+var cx                      = React.addons.classSet;
 var Label                   = __browserify__('./Label');
 var RepeatingFieldsetMixin  = __browserify__('./RepeatingFieldsetMixin');
 
@@ -721,7 +724,7 @@ var RepeatingFieldset = React.createClass({displayName: 'RepeatingFieldset',
       );}.bind(this)
     );
     return this.transferPropsTo(
-      React.DOM.div( {className:"rf-RepeatingFieldset"}, 
+      React.DOM.div( {className:cx("rf-RepeatingFieldset", this.props.className)}, 
         this.renderLabel(),
         fields,
         React.DOM.button(
@@ -1117,6 +1120,8 @@ module.exports.isValue = isValue;
  */
 'use strict';
 
+var React             = (window.React);
+var cloneWithProps    = React.addons.cloneWithProps;
 var utils             = __browserify__('./utils');
 var schema            = __browserify__('./schema');
 var Field             = __browserify__('./Field');
@@ -1131,16 +1136,22 @@ var RepeatingFieldset = __browserify__('./RepeatingFieldset');
  * @returns {ReactComponent}
  */
 function createComponentFromSchema(node) {
+  var props = {key: node.name, name: node.name};
+
   if (node.props.component) {
-    return node.props.component({key: node.name, name: node.name});
+    if (React.isValidComponent(node.props.component)) {
+      return cloneWithProps(node.props.component, props);
+    } else {
+      return node.props.component(props);
+    }
   }
 
   if (schema.isList(node)) {
-    return RepeatingFieldset( {key:node.name, name:node.name} );
+    return RepeatingFieldset(props);
   } else if (schema.isSchema(node)) {
-    return Fieldset( {key:node.name, name:node.name} );
+    return Fieldset(props);
   } else if (schema.isProperty(node)) {
-    return Field( {key:node.name, name:node.name} );
+    return Field(props);
   } else {
     utils.invariant(false, 'invalid schema node: ' + node);
   }

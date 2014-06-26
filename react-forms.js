@@ -1139,7 +1139,10 @@ function createComponentFromSchema(node) {
   var props = {key: node.name, name: node.name};
 
   if (node.props.component) {
-    if (React.isValidComponent(node.props.component)) {
+    // React.isValidComponent returns true even for component classes so we
+    // check if it is not in fact
+    if (React.isValidComponent(node.props.component)
+        && !React.isValidClass(node.props.component)) {
       return cloneWithProps(node.props.component, props);
     } else {
       return node.props.component(props);
@@ -1499,8 +1502,8 @@ for(Node____Key in Node){if(Node.hasOwnProperty(Node____Key)){SchemaNode[Node___
       forEachNested(args, function(arg)  {
         if (arg) {
           utils.invariant(
-              arg.name,
-              'props fields should specify name property'
+            arg.name,
+            'Each child of <Schema> node should have name property'
           );
           children[arg.name] = arg;
         }
@@ -1534,7 +1537,7 @@ for(Node____Key in Node){if(Node.hasOwnProperty(Node____Key)){ListNode[Node____K
 
     utils.invariant(
       args.length === 1,
-      'props for array must contain exactly one child props props'
+      '<List> node should contain exactly one child'
     );
 
     this.name = props.name;

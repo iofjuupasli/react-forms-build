@@ -1058,8 +1058,8 @@ for(Value____Key in Value){if(Value.hasOwnProperty(Value____Key)){ListValue[Valu
     var value = this.value.slice(0);
     var serialized = this.serialized.slice(0);
 
-    value.splice(bIndex, 0, value.splice(aIndex, 1));
-    serialized.splice(bIndex, 0, serialized.splice(aIndex, 1));
+    value.splice(bIndex, 0, value.splice(aIndex, 1)[0]);
+    serialized.splice(bIndex, 0, serialized.splice(aIndex, 1)[0]);
 
     return this.update({value:value, serialized:serialized});
   };

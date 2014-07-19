@@ -253,7 +253,7 @@ var Form = React.createClass({displayName: 'Form',
   mixins: [FormMixin],
 
   propTypes: {
-    component: React.PropTypes.component,
+    component: React.PropTypes.constructor,
     onChange: React.PropTypes.func,
     onUpdate: React.PropTypes.func
   },
@@ -1683,11 +1683,20 @@ var array = {
   deserialize: utils.emptyFunction.thatReturnsArgument
 };
 
+var bool = {
+  serialize: function (value) {
+    return value;
+  },
+  deserialize: function(value) {
+    return value;
+  }
+};
+
 function pad(num, size) {
   return ('0000' + num).substr(-size);
 }
 
-module.exports = {any:any, string:string, number:number, date:date, array:array};
+module.exports = {any:any, string:string, number:number, date:date, array:array, bool:bool};
 
 },{"./messages":24,"./utils":27}],27:[function(__browserify__,module,exports){
 /**

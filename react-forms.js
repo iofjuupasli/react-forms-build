@@ -3,7 +3,7 @@
   if (typeof define === 'function' && define.amd) {
     define(['react'], function(react){
         window.React = react;
-        factory(react);
+        return factory(react);
     });
   } else {
     root.ReactForms = factory(root.React);

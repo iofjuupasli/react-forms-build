@@ -1,7 +1,10 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(__browserify__,module,exports){
 ;(function (root, factory) {
   if (typeof define === 'function' && define.amd) {
-    define(['react'], factory);
+    define(['react'], function(react){
+        window.React = react;
+        factory(react);
+    });
   } else {
     root.ReactForms = factory(root.React);
   }
@@ -53,7 +56,7 @@ var Field = React.createClass({displayName: 'Field',
     var input = this.renderInputComponent({id:id, onBlur: this.onBlur});
 
     return (
-      React.DOM.div( {className:cx(className, this.props.className)}, 
+      React.DOM.div( {className:cx(className, this.props.className)},
         this.renderLabel(id),
         this.transferPropsTo(input),
         isFailure(externalValidation) &&
@@ -183,7 +186,7 @@ var Fieldset = React.createClass({displayName: 'Fieldset',
   render: function() {
     var schema = this.value().schema;
     return this.transferPropsTo(
-      React.DOM.div( {className:cx("rf-Fieldset", this.props.className)}, 
+      React.DOM.div( {className:cx("rf-Fieldset", this.props.className)},
         this.renderLabel(),
         schema.map(this.renderField)
       )
@@ -265,7 +268,7 @@ var Form = React.createClass({displayName: 'Form',
       'rf-Form--invalid': v.isFailure(this.value().validation)
     });
     return this.transferPropsTo(
-      component( {className:className}, 
+      component( {className:className},
         FormFor(null )
       )
     );
@@ -604,7 +607,7 @@ var Label = React.createClass({displayName: 'Label',
       return React.DOM.span(null );
     }
     return this.transferPropsTo(
-      React.DOM.label( {className:"rf-Label"}, 
+      React.DOM.label( {className:"rf-Label"},
         label,
         hint && Hint( {hint:hint} )
       )
@@ -639,7 +642,7 @@ var Message = React.createClass({displayName: 'Message',
 
   render: function() {
     return this.transferPropsTo(
-      React.DOM.span( {className:"rf-Message"}, 
+      React.DOM.span( {className:"rf-Message"},
         this.props.children
       )
     );
@@ -682,7 +685,7 @@ var Item = React.createClass({displayName: 'Item',
 
   render: function() {
     return this.transferPropsTo(
-      React.DOM.div( {className:"rf-RepeatingFieldset__item"}, 
+      React.DOM.div( {className:"rf-RepeatingFieldset__item"},
         this.props.children,
         React.DOM.button(
           {onClick:this.onRemove,
@@ -715,16 +718,16 @@ var RepeatingFieldset = React.createClass({displayName: 'RepeatingFieldset',
 
   render: function() {
     var Component = this.props.item;
-    var fields = this.renderFields().map(function(item) 
+    var fields = this.renderFields().map(function(item)
       {return Component(
         {key:item.props.name,
         name:item.props.name,
-        onRemove:this.remove}, 
+        onRemove:this.remove},
         item
       );}.bind(this)
     );
     return this.transferPropsTo(
-      React.DOM.div( {className:cx("rf-RepeatingFieldset", this.props.className)}, 
+      React.DOM.div( {className:cx("rf-RepeatingFieldset", this.props.className)},
         this.renderLabel(),
         fields,
         React.DOM.button(
@@ -791,7 +794,7 @@ var RepeatingFieldsetMixin = {
     var createComponentFromSchema = __browserify__('./createComponentFromSchema');
     var value = this.value();
     var children = createComponentFromSchema(value.schema.children);
-    return value.serialized.map(function(item, name) 
+    return value.serialized.map(function(item, name)
       {return cloneWithProps(children, {name:name, key: name});});
   },
 
@@ -1327,8 +1330,8 @@ var CheckboxGroup = React.createClass({displayName: 'CheckboxGroup',
       return (
         React.DOM.div(
           {className:"rf-CheckboxGroup__button",
-          key:option.value}, 
-          React.DOM.label( {className:"rf-CheckboxGroup__label"}, 
+          key:option.value},
+          React.DOM.label( {className:"rf-CheckboxGroup__label"},
             React.DOM.input(
               {onChange:this.onChange,
               checked:checked,
@@ -1336,7 +1339,7 @@ var CheckboxGroup = React.createClass({displayName: 'CheckboxGroup',
               type:"checkbox",
               name:name,
               value:option.value} ),
-            React.DOM.span( {className:"rf-CheckboxGroup__caption"}, 
+            React.DOM.span( {className:"rf-CheckboxGroup__caption"},
               option.name
             )
           )
@@ -1345,7 +1348,7 @@ var CheckboxGroup = React.createClass({displayName: 'CheckboxGroup',
     }.bind(this));
 
     return (
-      React.DOM.div( {className:"rf-CheckboxGroup"}, 
+      React.DOM.div( {className:"rf-CheckboxGroup"},
         options
       )
     );
@@ -1366,9 +1369,9 @@ function renderEmptyOption(props, onChange) {
   return (
     React.DOM.div(
         {className:"rf-RadioButtonGroup__button",
-        key:""}, 
+        key:""},
       React.DOM.label(
-        {className:"rf-RadioButtonGroup__label"}, 
+        {className:"rf-RadioButtonGroup__label"},
         React.DOM.input(
           {checked:props.checked,
           className:"rf-RadioButtonGroup__radio",
@@ -1376,7 +1379,7 @@ function renderEmptyOption(props, onChange) {
           name:props.name,
           onChange:onChange.bind(null, null),
           value:""} ),
-        React.DOM.span( {className:"rf-RadioButtonGroup__caption"}, 
+        React.DOM.span( {className:"rf-RadioButtonGroup__caption"},
           "none"
         )
       )
@@ -1404,7 +1407,7 @@ var RadioButtonGroup = React.createClass({displayName: 'RadioButtonGroup',
       }
 
       return (
-        React.DOM.div( {className:"rf-RadioButtonGroup"}, 
+        React.DOM.div( {className:"rf-RadioButtonGroup"},
           options
         )
       );
@@ -1418,9 +1421,9 @@ var RadioButtonGroup = React.createClass({displayName: 'RadioButtonGroup',
       return (
         React.DOM.div(
           {className:"rf-RadioButtonGroup__button",
-          key:option.value}, 
+          key:option.value},
           React.DOM.label(
-            {className:"rf-RadioButtonGroup__label"}, 
+            {className:"rf-RadioButtonGroup__label"},
             React.DOM.input(
               {checked:checked,
               className:"rf-RadioButtonGroup__radio",
@@ -1428,7 +1431,7 @@ var RadioButtonGroup = React.createClass({displayName: 'RadioButtonGroup',
               name:name,
               onChange:this.onChange.bind(null, option.value),
               value:option.value} ),
-            React.DOM.span( {className:"rf-RadioButtonGroup__caption"}, 
+            React.DOM.span( {className:"rf-RadioButtonGroup__caption"},
               option.name
             )
           )
@@ -2102,7 +2105,7 @@ function validator(func) {
     return func;
   }
 
-  var wrapper = function(value, schema) 
+  var wrapper = function(value, schema)
     {return value === null || value === undefined ?
       true :
       func(value, schema);};
@@ -2127,12 +2130,12 @@ function andThen(first, second) {
   return make(wrapper);
 }
 
-var exists = validatorEmpty(function(value, schema) 
+var exists = validatorEmpty(function(value, schema)
   {return schema.required && (value === null || value === undefined) ?
     messages.VALUE_IS_REQUIRED :
     true;});
 
-var nonEmpty = validator(function(value, schema) 
+var nonEmpty = validator(function(value, schema)
   {return schema.nonEmpty && value.length === 0 ?
     messages.AT_LEAST_ONE_ITEM_IS_REQUIRED :
     true;});
